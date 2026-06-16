@@ -48,7 +48,7 @@ export const api = {
             body: JSON.stringify({ email, password }),
         });
         const d = await r.json();
-        if (!r.ok) throw new Error(d.message || 'Credenciales incorrectas.');
+        if (!r.ok) throw new Error('Email o contraseña incorrectos.');
         return d;
     },
 
