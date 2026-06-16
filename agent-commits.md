@@ -1,5 +1,26 @@
 # Registro de commits del agente
 
+## [FASE 3] feat: Phase 3 — REST API with JWT auth and roles
+**Hash:** `(pendiente)`
+**Rama:** `main`
+**Fecha:** 2026-06-16
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `backend/src/Application/MovementLoader.php` | nuevo | Carga Movement entities de un proyecto y los mapea a MovementRecord[] para el dominio |
+| `backend/src/Application/ShareLoader.php` | nuevo | Carga MemberProject entities de un proyecto y los mapea a MemberShare[] para el dominio |
+| `backend/src/Domain/Service/BalanceCalculator.php` | modificado | Agrega `computeTotalCost()` público que filtra activos y suma gastos |
+| `backend/src/Controller/LoginController.php` | nuevo | Ruta GET `/api/login` requerida para que json_login de Symfony registre el endpoint en el router |
+| `backend/src/Controller/ProjectController.php` | nuevo | GET `/api/projects` y GET `/api/projects/{id}/dashboard` |
+| `backend/src/Controller/ExpenseController.php` | nuevo | POST `/api/projects/{id}/expenses` con validación y warning de anomalía |
+| `backend/src/Controller/PaymentController.php` | nuevo | POST preview/create de pagos y POST confirm por batch_id |
+| `backend/src/Controller/MovementController.php` | nuevo | POST `/api/movements/{id}/cancel` (ROLE_ADMIN only, cancela batch entero si aplica) |
+| `backend/src/Controller/MaterialController.php` | nuevo | GET `/api/materials?q=...` autocomplete por normalized_name |
+
+### Justificación
+La capa Application (`MovementLoader`, `ShareLoader`) es el único punto donde se traduce entre Doctrine entities y los value objects del dominio puro. Esto mantiene `Domain/` sin dependencias de Symfony/Doctrine. El `LoginController` existe solo para registrar la ruta `/api/login` en el router de Symfony — el security firewall intercepta la request antes de que el método se ejecute. El endpoint de cancelación usa `#[IsGranted('ROLE_ADMIN')]` en vez de `access_control` en security.yaml para mantener la restricción co-localizada con el código. Para batch payments, `cancel` crea una fila de anulación por cada movimiento del batch (append-only). Los 403 devuelven HTML en dev por el ExceptionListener de Symfony — comportamiento esperado en development.
+
 ## [FASE 2] feat: Phase 2 — pure domain logic and tests
 **Hash:** `d531ba3`
 **Rama:** `main`

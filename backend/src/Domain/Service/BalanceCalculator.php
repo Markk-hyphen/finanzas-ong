@@ -142,6 +142,12 @@ class BalanceCalculator
         return $total;
     }
 
+    /** @param MovementRecord[] $movements all project movements (including cancellations) */
+    public function computeTotalCost(array $movements): string
+    {
+        return $this->totalCost($this->activeMovements($movements));
+    }
+
     private function floorToScale(string $value, int $scale): string
     {
         if (str_contains($value, '.')) {
