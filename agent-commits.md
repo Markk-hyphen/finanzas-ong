@@ -1,5 +1,20 @@
 # Registro de commits del agente
 
+## [FASE 4 — fix] fix: show login error in Spanish instead of Lexik's English message
+**Hash:** `04afc57`
+**Rama:** `main`
+**Fecha:** 2026-06-16
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `frontend/src/js/api.js` | modificado | Reemplaza `d.message` (mensaje en inglés de Lexik) por texto fijo en español |
+
+### Justificación
+Lexik devuelve `"Invalid credentials."` en inglés cuando el login falla. En vez de confiar en el mensaje del backend (que puede cambiar o ser en otro idioma), se hardcodea el texto orientado al usuario directamente en el frontend: "Email o contraseña incorrectos." Esto es coherente con la convención del proyecto: el código va en inglés, los textos al usuario van en español.
+
+---
+
 ## [FASE 4] feat: Phase 4 — mobile-first SPA frontend
 **Hash:** `da84d50`
 **Rama:** `main`
