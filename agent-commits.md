@@ -1,5 +1,27 @@
 # Registro de commits del agente
 
+## [FASE 2] feat: Phase 2 — pure domain logic and tests
+**Hash:** `d531ba3`
+**Rama:** `main`
+**Fecha:** 2026-06-16
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `backend/src/Domain/Model/MovementRecord.php` | nuevo | Value object inmutable de movimiento para el dominio puro |
+| `backend/src/Domain/Model/MemberShare.php` | nuevo | Value object con memberId + percentage |
+| `backend/src/Domain/Model/Allocation.php` | nuevo | Value object de resultado de reparto (toMemberId + amount) |
+| `backend/src/Domain/Strategy/AllocationStrategy.php` | nuevo | Interfaz del allocator — seam para estrategias futuras |
+| `backend/src/Domain/Strategy/ProportionalToCredit.php` | nuevo | Implementación MVP: reparto proporcional al crédito con largest-remainder |
+| `backend/src/Domain/Service/BalanceCalculator.php` | nuevo | Fold sobre movimientos activos; distribuye obligaciones con largest-remainder para garantizar Σ=0 |
+| `backend/src/Domain/Service/AllocationValidator.php` | nuevo | Valida resultado del reparto (suma, cap por acreedor, cap por deuda del pagador) |
+| `backend/src/Domain/Service/AnomalyDetector.php` | nuevo | Warning si monto > 5×mediana; nunca bloquea |
+| `backend/tests/Domain/*Test.php` (×4) | nuevo | Suite PHPUnit: 29 tests, 143 assertions |
+| `backend/Dockerfile` | modificado | Agrega extensión bcmath |
+
+### Justificación
+El error de conservación (1 test fallido inicialmente) se debía a que la suma de obligaciones redondeadas a 2 decimales no era exactamente igual al costo total. Se resolvió aplicando el mismo algoritmo de largest-remainder ya usado en el allocator, garantizando que la distribución de obligaciones sea exacta centavo a centavo.
+
 ## [FASE 1] feat: Phase 1 — entities, migration, security config
 **Hash:** `daaa7d3`
 **Rama:** `main`
