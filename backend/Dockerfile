@@ -33,6 +33,7 @@ RUN set -eux; \
 		@composer \
 		amqp \
 		apcu \
+		bcmath \
 		intl \
 		opcache \
 		pdo_pgsql \
