@@ -98,6 +98,17 @@ Para proyectos donde se quiera dejar un registro detallado de cada cambio del ag
 - Si un cambio resuelve un problema encontrado durante la ejecución (no previsto en el plan), documentarlo explícitamente.
 - El commit de git y la entrada en `agent-commits.md` van en el **mismo commit**.
 
+## Convención de idioma en el código
+
+**Todo el código fuente se escribe en inglés.** Esto incluye:
+- PHP: clases, propiedades, métodos, variables, constantes, parámetros
+- JavaScript: variables, funciones, clases, nombres de módulos
+- Base de datos: nombres de tablas y columnas (generados por Doctrine desde el PHP)
+- Configuración (YAML, JSON, etc.): claves y valores que sean identificadores de código
+- Comentarios en el código
+
+Los textos orientados al usuario (respuestas API, mensajes de error hacia el frontend, documentación en Markdown) pueden estar en español.
+
 ## Chequeos de sanidad (inicio y cierre de sesión)
 
 Correr al **inicio** de cada sesión antes de tocar código:
