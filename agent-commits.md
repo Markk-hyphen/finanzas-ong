@@ -1,7 +1,30 @@
 # Registro de commits del agente
 
-## [FASE 3] feat: Phase 3 — REST API with JWT auth and roles
+## [FASE 4] feat: Phase 4 — mobile-first SPA frontend
 **Hash:** `(pendiente)`
+**Rama:** `main`
+**Fecha:** 2026-06-16
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `backend/src/Controller/MemberController.php` | nuevo | GET `/api/me` — devuelve id, name, email, roles del usuario autenticado |
+| `frontend/index.html` | modificado | Reemplaza demo Oliva por shell del SPA (navbar fija + `#app`) |
+| `frontend/src/style.css` | modificado | Reemplaza estilos de la demo por reset mínimo + helper autocomplete |
+| `frontend/src/main.js` | modificado | Reemplaza entrada de la demo por router hash-based + dispatcher |
+| `frontend/src/js/api.js` | nuevo | Fetch wrapper con JWT, storage helpers, isAdmin() |
+| `frontend/src/js/nav.js` | nuevo | navigate() y setNav() para controlar la barra superior |
+| `frontend/src/js/views/login.js` | nuevo | Pantalla de login: llama /api/login + /api/me, guarda en localStorage |
+| `frontend/src/js/views/projects.js` | nuevo | Lista de proyectos del socio autenticado |
+| `frontend/src/js/views/dashboard.js` | nuevo | Dashboard: balance propio, balances del proyecto, movimientos, pendientes de confirmar, anular (admin) |
+| `frontend/src/js/views/expense.js` | nuevo | Formulario de gasto con autocomplete de materiales y SweetAlert2 para warning de anomalía |
+| `frontend/src/js/views/payment.js` | nuevo | Formulario de pago: preview del reparto → confirmar |
+
+### Justificación
+Se extrae `navigate()` y `setNav()` a `nav.js` para evitar dependencias circulares con `main.js` (que importa las views, que necesitan navegar). El `GET /api/me` se agrega al backend porque el JWT de Lexik solo contiene email, no ID; el frontend necesita el ID para identificar el balance propio en el dashboard. El build de Vite confirma que todos los módulos resuelven correctamente (13 modules, 0 errores).
+
+## [FASE 3] feat: Phase 3 — REST API with JWT auth and roles
+**Hash:** `f406e0b`
 **Rama:** `main`
 **Fecha:** 2026-06-16
 

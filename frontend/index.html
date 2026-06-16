@@ -1,203 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Oliva</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Finanzas ONG</title>
 </head>
-<body>
+<body class="bg-light">
 
-  <!-- NAV -->
-  <nav id="navbar" class="nav-bar">
-    <span class="nav-brand">Oliva</span>
-    <a href="http://localhost/api" class="nav-btn" target="_blank">API →</a>
+  <nav class="navbar navbar-dark bg-primary fixed-top shadow-sm">
+    <div class="container-fluid px-3" style="min-height:48px">
+      <button id="btn-back" class="btn btn-link text-white p-0 d-none" style="font-size:1.6rem;line-height:1;width:2rem">‹</button>
+      <span id="nav-title" class="navbar-brand mx-auto mb-0 fs-6 fw-semibold">Finanzas ONG</span>
+      <button id="btn-logout" class="btn btn-link text-white p-0 d-none" style="font-size:1.1rem;width:2rem" title="Cerrar sesión">⏻</button>
+    </div>
   </nav>
 
-  <!-- HERO -->
-  <section class="hero">
-    <div class="hero-grid"></div>
-    <div class="hero-content">
-      <span class="hero-tag">Full-stack · Decoupled · Docker Native</span>
-      <h1 class="hero-title">Oliva</h1>
-      <p class="hero-sub">
-        A modern backend–frontend platform.<br />
-        Built to ship.
-      </p>
-      <a href="#features" class="cta-btn">Explore the stack</a>
-    </div>
-    <div class="scroll-line"></div>
-  </section>
-
-  <!-- MARQUEE -->
-  <div class="marquee-wrap">
-    <div class="marquee-track">
-      <span>FrankenPHP</span><span class="dot">·</span>
-      <span>Symfony 7</span><span class="dot">·</span>
-      <span>Caddy</span><span class="dot">·</span>
-      <span>PostgreSQL</span><span class="dot">·</span>
-      <span>JWT Auth</span><span class="dot">·</span>
-      <span>Vite</span><span class="dot">·</span>
-      <span>Bootstrap 5</span><span class="dot">·</span>
-      <span>Docker Compose</span><span class="dot">·</span>
-      <span>FrankenPHP</span><span class="dot">·</span>
-      <span>Symfony 7</span><span class="dot">·</span>
-      <span>Caddy</span><span class="dot">·</span>
-      <span>PostgreSQL</span><span class="dot">·</span>
-      <span>JWT Auth</span><span class="dot">·</span>
-      <span>Vite</span><span class="dot">·</span>
-      <span>Bootstrap 5</span><span class="dot">·</span>
-      <span>Docker Compose</span><span class="dot">·</span>
-    </div>
-  </div>
-
-  <!-- FEATURES -->
-  <section id="features" class="section section--light">
-    <div class="container">
-      <p class="section-eyebrow">What's under the hood</p>
-      <h2 class="section-title dark">Three layers,<br /><em>one command.</em></h2>
-
-      <div class="cards">
-
-        <div class="card">
-          <div class="card-num">01</div>
-          <h3>Backend</h3>
-          <p>
-            FrankenPHP runs Symfony in worker mode — persistent PHP processes,
-            zero cold starts. Caddy handles TLS, compression and routing.
-            JWT authentication included.
-          </p>
-          <div class="card-tags">
-            <span>FrankenPHP</span><span>Symfony 7</span><span>Caddy</span><span>JWT</span>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-num">02</div>
-          <h3>Frontend</h3>
-          <p>
-            Vanilla JS with a curated library stack — Bootstrap, Swiper,
-            SweetAlert2, Jarallax. Vite bundles everything in milliseconds
-            and hot-reloads in dev.
-          </p>
-          <div class="card-tags">
-            <span>Vite</span><span>Bootstrap 5</span><span>Vanilla JS</span>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-num">03</div>
-          <h3>Infrastructure</h3>
-          <p>
-            Fully containerized. Isolated Docker bridge network — only the
-            frontend port is exposed in production. Database never touches
-            the public interface.
-          </p>
-          <div class="card-tags">
-            <span>Docker Compose</span><span>PostgreSQL</span><span>Bridge Network</span>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ARCHITECTURE -->
-  <section class="section section--dark">
-    <div class="container">
-      <p class="section-eyebrow light">How it flows</p>
-      <h2 class="section-title light">Clean separation<br /><em>at every layer.</em></h2>
-
-      <div class="arch">
-        <div class="arch-node">
-          <span class="arch-label">Browser</span>
-        </div>
-        <div class="arch-connector">
-          <span class="arch-arrow-label">HTTP</span>
-          <div class="arch-line"></div>
-        </div>
-        <div class="arch-node arch-node--accent">
-          <span class="arch-label">Frontend</span>
-          <span class="arch-sub">Caddy · Vite</span>
-        </div>
-        <div class="arch-connector">
-          <span class="arch-arrow-label">/api/*</span>
-          <div class="arch-line"></div>
-        </div>
-        <div class="arch-node arch-node--accent">
-          <span class="arch-label">Backend</span>
-          <span class="arch-sub">FrankenPHP · Symfony</span>
-        </div>
-        <div class="arch-connector">
-          <span class="arch-arrow-label">SQL</span>
-          <div class="arch-line"></div>
-        </div>
-        <div class="arch-node">
-          <span class="arch-label">PostgreSQL</span>
-        </div>
-      </div>
-
-      <p class="arch-note">
-        Backend is internal-only in production — never directly reachable from outside.
-      </p>
-    </div>
-  </section>
-
-  <!-- LIVE DEMO -->
-  <section id="live" class="section section--dark live-section">
-    <div class="container">
-      <p class="section-eyebrow light">Real-time</p>
-      <h2 class="section-title light">Open two tabs.<br /><em>See the magic.</em></h2>
-
-      <div class="live-status">
-        <span class="live-dot"></span>
-        <span class="live-label">CONNECTING</span>
-        <span class="live-sep">·</span>
-        <span class="live-count">—</span>
-      </div>
-
-      <div class="live-grid">
-
-        <div class="live-panel live-panel--canvas">
-          <div class="live-panel-header">
-            <span>Shared Canvas</span>
-            <button class="live-clear" id="live-clear">Clear</button>
-          </div>
-          <canvas id="live-canvas"></canvas>
-          <p class="live-hint">Draw with your mouse · syncs across all open tabs</p>
-        </div>
-
-        <div class="live-panel live-panel--feed">
-          <div class="live-panel-header">
-            <span>Live Feed</span>
-          </div>
-          <ul class="live-feed" id="live-feed">
-            <li class="live-feed-empty">Waiting for events…</li>
-          </ul>
-          <div class="live-reactions">
-            <button class="live-react" data-emoji="❤️">❤️</button>
-            <button class="live-react" data-emoji="🔥">🔥</button>
-            <button class="live-react" data-emoji="⚡">⚡</button>
-            <button class="live-react" data-emoji="🎉">🎉</button>
-            <button class="live-react" data-emoji="✨">✨</button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-    <div class="live-floats" id="live-floats"></div>
-  </section>
-
-  <!-- FOOTER -->
-  <footer class="footer">
-    <span>Oliva</span>
-    <span class="footer-sep">·</span>
-    <span>FrankenPHP + Symfony + Vite</span>
-    <span class="footer-sep">·</span>
-    <span>Docker Native</span>
-  </footer>
+  <main id="app" class="container-fluid pt-5 mt-2 pb-5 px-3" style="max-width:600px"></main>
 
   <script type="module" src="src/main.js"></script>
 </body>

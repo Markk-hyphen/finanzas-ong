@@ -1,0 +1,64 @@
+const TOKEN_KEY = 'ong_jwt';
+const USER_KEY  = 'ong_user';
+
+export const storage = {
+    getToken:  ()  => localStorage.getItem(TOKEN_KEY),
+    setToken:  (t) => localStorage.setItem(TOKEN_KEY, t),
+
+    getUser:   ()  => { const s = localStorage.getItem(USER_KEY); return s ? JSON.parse(s) : null; },
+    setUser:   (u) => localStorage.setItem(USER_KEY, JSON.stringify(u)),
+
+    clear:     ()  => { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); },
+    isAdmin:   ()  => (storage.getUser()?.roles ?? []).includes('ROLE_ADMIN'),
+};
+
+async function request(method, path, body = null) {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = storage.getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const resp = await fetch('/api' + path, {
+        method,
+        headers,
+        body: body !== null ? JSON.stringify(body) : undefined,
+    });
+
+    if (resp.status === 401) {
+        storage.clear();
+        location.hash = '#/login';
+        throw new Error('Sesión expirada. Iniciá sesión nuevamente.');
+    }
+
+    let data = {};
+    const text = await resp.text();
+    if (text) { try { data = JSON.parse(text); } catch {} }
+
+    if (!resp.ok) {
+        throw Object.assign(new Error(data.error || `Error ${resp.status}`), { status: resp.status, data });
+    }
+
+    return data;
+}
+
+export const api = {
+    login: async (email, password) => {
+        const r = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.message || 'Credenciales incorrectas.');
+        return d;
+    },
+
+    me:             ()          => request('GET',  '/me'),
+    getProjects:    ()          => request('GET',  '/projects'),
+    getDashboard:   (id)        => request('GET',  `/projects/${id}/dashboard`),
+    createExpense:  (id, body)  => request('POST', `/projects/${id}/expenses`, body),
+    previewPayment: (id, body)  => request('POST', `/projects/${id}/payments/preview`, body),
+    createPayment:  (id, body)  => request('POST', `/projects/${id}/payments`, body),
+    confirmPayment: (batchId)   => request('POST', `/payments/${batchId}/confirm`),
+    cancelMovement: (id, body)  => request('POST', `/movements/${id}/cancel`, body),
+    getMaterials:   (q)         => request('GET',  `/materials?q=${encodeURIComponent(q)}`),
+};
