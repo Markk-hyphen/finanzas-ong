@@ -4,19 +4,23 @@ Comandos que el usuario puede escribir en el chat para activar protocolos espec�
 
 ---
 
-## `claude reiniciar [x=60]`
+## `claude reiniciar [x=60] [-f]`
 
 **Qué hace:** Si el contexto de la conversación está por encima de `x`% de su límite, guarda todo lo necesario para un reinicio exitoso y avisa que se puede abrir una nueva sesión.
 
 **Cuándo usarlo:** Antes de empezar una tarea larga, o si la conversación se siente lenta o degradada.
 
+**Flag `-f` (forzar):** Salta el paso 1 (estimar contexto) y el chequeo de umbral — ejecuta directo los pasos de guardado (3a-3d), sin calcular ni declarar ningún porcentaje.
+
 **Protocolo que ejecuta el agente:**
 
-1. **Estimar uso de contexto.** El agente no puede medirlo con precisión; estima en base a la longitud de la conversación y lo declara explícitamente.
+1. **Si se pasó `-f`:** ir directo al paso 3.
 
-2. **Si está por debajo del umbral:** informar el porcentaje estimado y continuar sin hacer nada más.
+2. **Estimar uso de contexto.** El agente no puede medirlo con precisión; estima en base a la longitud de la conversación y lo declara explícitamente.
 
-3. **Si está por encima del umbral:**
+3. **Si está por debajo del umbral:** informar el porcentaje estimado y continuar sin hacer nada más.
+
+4. **Si está por encima del umbral (o si se pasó `-f`):**
    a. Verificar que no haya código sin commitear (`git status -s`). Si hay trabajo pendiente, commitearlo primero.
    b. Verificar que `agent-commits.md` esté al día con el último commit.
    c. Actualizar los archivos de memoria en `/home/marcos/.claude/projects/-home-marcos-finanzas-ong/memory/` con el estado actual del proyecto: fase en curso, qué está hecho, qué sigue, decisiones abiertas.

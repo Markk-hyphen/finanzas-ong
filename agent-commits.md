@@ -1,5 +1,20 @@
 # Registro de commits del agente
 
+## [META] feat: flag -f en `claude reiniciar` para saltar estimación de contexto
+**Hash:** `<pendiente>`
+**Rama:** `main`
+**Fecha:** 2026-06-17
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `claude-commands.md` | modificado | agrega flag `-f` a `claude reiniciar [x=60] [-f]`: salta el paso de estimar % de contexto y va directo a los pasos de guardado (commit pendiente, agent-commits.md, memoria) |
+
+### Justificación
+El usuario pidió evitar que el agente calcule/declare un porcentaje de contexto cuando ya sabe que quiere guardar el estado — la estimación no es precisa y agrega un paso innecesario cuando la intención ya es clara. El mismo cambio se replicó en `claude-commands.md` de Oliva (`/home/marcos/app`) para mantener el protocolo consistente entre ambos repos.
+
+---
+
 ## [FASE 5 — prep] fix: port del upgrade de Oliva (Compose profiles) a finanzas-ong
 **Hash:** `03241e1`
 **Rama:** `main`
@@ -19,7 +34,7 @@ finanzas-ong forkeó Oliva antes de que existiera el mecanismo de Compose profil
 ---
 
 ## [FASE 5 — plan] docs: guía de planificación VPS + infra para apps Oliva
-**Hash:** `<pendiente>`
+**Hash:** `4042837`
 **Rama:** `main`
 **Fecha:** 2026-06-16
 
