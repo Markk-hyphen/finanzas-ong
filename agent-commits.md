@@ -1,7 +1,7 @@
 # Registro de commits del agente
 
 ## [FASE 5 — prep] fix: port del upgrade de Oliva (Compose profiles) a finanzas-ong
-**Hash:** `<pendiente>`
+**Hash:** `03241e1`
 **Rama:** `main`
 **Fecha:** 2026-06-17
 
