@@ -1,5 +1,38 @@
 # Registro de commits del agente
 
+## [FASE 5 — prep] fix: port del upgrade de Oliva (Compose profiles) a finanzas-ong
+**Hash:** `<pendiente>`
+**Rama:** `main`
+**Fecha:** 2026-06-17
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `docker-compose.yml` | modificado | `rabbitmq` pasa a `profiles: ["queues"]`; se quita `depends_on: rabbitmq` de `backend` y `scheduler` (no usan Messenger) |
+| `docker-compose.override.yml` | modificado | `worker` pasa a `profiles: ["queues"]`; se quita `depends_on: rabbitmq` de `scheduler` |
+| `.env.example` | modificado | agrega `COMPOSE_PROFILES=` documentado (vacío por defecto) |
+| `.env` | modificado (gitignored) | agrega `COMPOSE_PROFILES=` vacío |
+
+### Justificación
+finanzas-ong forkeó Oliva antes de que existiera el mecanismo de Compose profiles (`COMPOSE_PROFILES`, commit `9d2abc4` en Oliva). Es prerequisito de la Fase 5 (deploy a prod, ver `docs/deploy-vps-planificacion.md` y el runbook de deploy): sin esto, `rabbitmq`/`worker` se levantarían siempre aunque la app no los use, desperdiciando RAM en un VPS de 1 GB. Se eligió el port a mano (Opción A del runbook) en vez de cherry-pick porque la divergencia entre ambos repos era mínima (3-4 líneas, confirmado con diff directo contra Oliva). Verificado localmente: `docker compose config --services` sin profile devuelve solo `database`/`backend`/`frontend`/`scheduler`; con `COMPOSE_PROFILES=queues` aparecen también `rabbitmq`/`worker`. Se levantó el stack real (`docker compose up -d`) sin profile y `GET /health` respondió `{"status":"ok"}` con solo los 4 servicios core corriendo.
+
+---
+
+## [FASE 5 — plan] docs: guía de planificación VPS + infra para apps Oliva
+**Hash:** `<pendiente>`
+**Rama:** `main`
+**Fecha:** 2026-06-16
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `docs/deploy-vps-planificacion.md` | nuevo | Guía de planificación para contratar VPS y montar la infra de deploy de apps Oliva |
+
+### Justificación
+El usuario quiere dejar registrado el plan de infraestructura discutido (elección de VPS, costos, infra compartida, fases de ejecución, backups) para retomarlo cuando contrate el servicio. Decisiones clave documentadas: datacenter en São Paulo por usuarios finales en Argentina (~30-50 ms vs ~250 ms a Europa); arranque con plan 1 GB (~$6 USD/mes) para la app de la ONG; patrón de infra compartida (un Postgres + un RabbitMQ para todas las apps) para escalar a 5-20 apps sin multiplicar el consumo de RAM. Se documenta también la deuda conocida del `worker` sin definición de prod (de CLAUDE.md). Es un doc de planificación, no toca código de la app.
+
+---
+
 ## [FASE 4 — fix] fix: show login error in Spanish instead of Lexik's English message
 **Hash:** `04afc57`
 **Rama:** `main`

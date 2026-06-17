@@ -11,6 +11,7 @@ services:
 
   worker:
     image: app-backend-dev:1.0
+    profiles: ["queues"]
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -54,8 +55,6 @@ services:
       - .env
       - .env.backend
     depends_on:
-      rabbitmq:
-        condition: service_healthy
       database:
         condition: service_healthy
     volumes:
