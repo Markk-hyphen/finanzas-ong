@@ -1,7 +1,7 @@
 # Registro de commits del agente
 
 ## [META] feat: flag -f en `claude reiniciar` para saltar estimación de contexto
-**Hash:** `<pendiente>`
+**Hash:** `3b5780b`
 **Rama:** `main`
 **Fecha:** 2026-06-17
 
