@@ -1,7 +1,7 @@
 # Registro de commits del agente
 
 ## [FASE 5 — ejecución] docs: repo privado en GitHub + deploy key del VPS
-**Hash:** (pendiente — ver commit de este cambio)
+**Hash:** `b17b69b`
 **Rama:** `main`
 **Fecha:** 2026-06-24
 
