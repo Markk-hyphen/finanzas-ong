@@ -4,8 +4,10 @@ Guía de planificación para pasar de cero a tener un VPS con varias apps
 basadas en Oliva deployadas. Pensada para uso propio / staging, con la
 primera app real siendo la de la ONG (carga de gastos por 2 socios).
 
-> **Estado:** planificación. Todavía no hay VPS contratado. Este doc es el
-> plan a ejecutar cuando se contrate el servicio.
+> **Estado:** en ejecución. VPS contratado, droplet creado. Repo
+> `finanzas-ong` ya tiene remoto propio en GitHub (privado) y está clonado en
+> el VPS (ver Fase 5 para el detalle). Faltan los pasos de `.env` de
+> producción, build y migraciones.
 
 ---
 
@@ -145,23 +147,111 @@ Crear base + usuario por app en el Postgres compartido, y vhost en RabbitMQ.
 El repo de la ONG vive en `/home/marcos/finanzas-ong` (local) — Oliva base
 está en `/home/marcos/app`.
 
-1. Clonar el repo de la app en el VPS (`~/ong`).
-2. Crear `.env`, `.env.backend`, `.env.frontend` de **producción**
+#### 1. Repo privado en GitHub + acceso del VPS (hecho 2026-06-24)
+
+`finanzas-ong` nunca tuvo remoto propio — solo tenía `oliva-upstream`
+apuntando al framework (ver Epic B en `app/docs/roadmap`). Antes de clonar
+en el VPS hubo que crear el repo y darle al servidor un acceso de solo
+lectura, sin exponer credenciales amplias. Pasos reales, en orden:
+
+1. **Decisión: repo privado.** La app maneja datos financieros de la ONG;
+   no hay motivo para que sea público.
+
+2. **Crear el repo vía API de GitHub** (no por UI). El primer intento usó un
+   token fine-grained ya guardado en la máquina (`~/.git-credentials`,
+   scopeado solo al repo `oliva`) y falló: `403 Resource not accessible by
+   personal access token` — un fine-grained PAT scopeado a repos puntuales
+   no puede crear repos nuevos a nivel cuenta. Se resolvió pidiendo al
+   usuario un **token classic** con scopes `repo` + `workflow` (este último
+   porque el repo incluye `.github/workflows/ci.yml`; sin `workflow` el
+   push de ese archivo se rechaza igual con el token correcto para todo lo
+   demás):
+
+   ```bash
+   curl -s -X POST -H "Authorization: token <PAT classic repo+workflow>" \
+     https://api.github.com/user/repos \
+     -d '{"name":"finanzas-ong","private":true,"description":"..."}'
+   ```
+
+3. **Push inicial del historial local** usando ese mismo token embebido
+   temporalmente en la URL del remoto:
+
+   ```bash
+   git remote add origin "https://<TOKEN>@github.com/Markk-hyphen/finanzas-ong.git"
+   git push -u origin main
+   git remote remove origin   # se vuelve a agregar sin el token después
+   ```
+
+   > El token classic con scope `repo` queda con acceso de escritura a
+   > *todos* tus repos — usarlo solo para este bootstrap puntual (crear +
+   > push inicial) y revocarlo/rotarlo después. Nunca dejarlo pegado en
+   > texto plano más tiempo del necesario.
+
+4. **Acceso de lectura del VPS: deploy key dedicada, no el PAT amplio.**
+   Poner un token de cuenta completo en un servidor remoto es innecesario y
+   riesgoso — si el VPS se compromete, ese token expone todos los repos. En
+   vez de eso, una **deploy key** SSH de solo lectura, atada a *este* repo
+   únicamente:
+
+   ```bash
+   # En el VPS:
+   ssh-keygen -t ed25519 -C "deploy-finanzas-ong" -f ~/.ssh/finanzas_ong_deploy -N ""
+   cat ~/.ssh/finanzas_ong_deploy.pub
+   ```
+
+   La clave pública se registra en el repo (no en la cuenta) vía API, con
+   `read_only: true`:
+
+   ```bash
+   curl -s -X POST -H "Authorization: token <PAT>" \
+     https://api.github.com/repos/Markk-hyphen/finanzas-ong/keys \
+     -d '{"title":"VPS deploy (read-only)","key":"ssh-ed25519 AAAA...","read_only":true}'
+   ```
+
+5. **Alias de SSH en el VPS** para que `git` use esa clave específica en vez
+   de la default del usuario (`~/.ssh/config`):
+
+   ```
+   Host github.com-finanzas-ong
+       HostName github.com
+       User git
+       IdentityFile ~/.ssh/finanzas_ong_deploy
+       IdentitiesOnly yes
+   ```
+
+6. **Clonar usando el alias:**
+
+   ```bash
+   ssh -T git@github.com-finanzas-ong   # debe saludar, no da shell — eso es éxito
+   git clone git@github.com-finanzas-ong:Markk-hyphen/finanzas-ong.git ~/ong
+   ```
+
+**Por qué esta vuelta y no simplemente poner el PAT en el VPS:** separa
+"quién puede crear/administrar repos" (el PAT, vive solo en la máquina
+local, de uso puntual) de "quién puede leer este repo desde el servidor de
+producción" (la deploy key, de solo lectura, inutilizable para escribir o
+para tocar cualquier otro repo). Si en el futuro hay más apps en el mismo
+VPS, cada una tendría su propia deploy key — un compromiso de una no
+expone a las demás.
+
+#### 2. `.env` de producción y resto del deploy
+
+1. Crear `.env`, `.env.backend`, `.env.frontend` de **producción**
    (secretos reales: `APP_SECRET`, `JWT_PASSPHRASE`, passwords, claves
    Mercure con `openssl rand hex 32`). **Nunca** commitear estos.
-3. Si se usa infra compartida: editar el compose de la app para **quitar**
+2. Si se usa infra compartida: editar el compose de la app para **quitar**
    los servicios `database` y `rabbitmq`, conectar a `shared_network`, y
    apuntar `DATABASE_URL` / `RABBITMQ_DSN` al host compartido.
-4. Build y levantar:
+3. Build y levantar:
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.prod.yml build
    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
    ```
-5. Correr migraciones:
+4. Correr migraciones:
    ```bash
    docker compose exec backend bin/console doctrine:migrations:migrate --no-interaction
    ```
-6. Verificar health: `GET /health` → `{"status":"ok"}` y
+5. Verificar health: `GET /health` → `{"status":"ok"}` y
    `/.well-known/mercure`.
 
 ---

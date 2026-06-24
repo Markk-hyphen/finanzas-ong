@@ -1,5 +1,20 @@
 # Registro de commits del agente
 
+## [FASE 5 — ejecución] docs: repo privado en GitHub + deploy key del VPS
+**Hash:** (pendiente — ver commit de este cambio)
+**Rama:** `main`
+**Fecha:** 2026-06-24
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `docs/deploy-vps-planificacion.md` | modificado | Reemplaza el paso "Clonar el repo" de la Fase 5 por un walkthrough completo de cómo se creó `finanzas-ong` como repo privado en GitHub y cómo el VPS obtuvo acceso de lectura sin exponer un PAT amplio; actualiza el "Estado" del doc de "planificación" a "en ejecución" |
+
+### Justificación
+El repo `finanzas-ong` nunca tuvo remoto propio (solo `oliva-upstream` apuntando al framework). Al ir a deployar se hizo todo el bootstrap real: intento fallido con un token fine-grained (403, sin permiso de crear repos a nivel cuenta), creación del repo con un token classic `repo`+`workflow` (este último necesario por `.github/workflows/ci.yml`), push inicial, y — para no dejar ese token amplio en el VPS — generación de una deploy key SSH de solo lectura específica del repo, registrada vía API (`read_only: true`) y usada con un alias en `~/.ssh/config` del servidor. El doc de deploy no tenía nada de esto documentado (asumía "clonar el repo" como un paso trivial) y el usuario pidió explícitamente dejarlo registrado para no repetir la investigación en el futuro (p.ej. al deployar la segunda app sobre el mismo VPS).
+
+---
+
 ## [FASE 5 — prep] merge: oliva-upstream/main (cierre del gap de upgrade manual)
 **Hash:** `7bf530e` (merge) precedido por `1cbf55d`
 **Rama:** `main`
