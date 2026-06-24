@@ -6,8 +6,10 @@ primera app real siendo la de la ONG (carga de gastos por 2 socios).
 
 > **Estado:** en ejecución. VPS contratado, droplet creado. Repo
 > `finanzas-ong` ya tiene remoto propio en GitHub (privado) y está clonado en
-> el VPS (ver Fase 5 para el detalle). Faltan los pasos de `.env` de
-> producción, build y migraciones.
+> el VPS (ver Fase 5 para el detalle). **Próximo paso: Fase 3 — infra
+> compartida** (Postgres/RabbitMQ comunes a todas las apps), porque
+> crypto-market-pulse va a ser la 2da app. Ver §8 para el plan de retomada.
+> Después de eso: `.env` de producción, build y migraciones.
 
 ---
 
@@ -304,7 +306,73 @@ Imprescindible aunque sea staging, porque hay datos reales de la ONG.
 ## 7. Decisiones pendientes (definir al ejecutar)
 
 - ¿Vultr o DigitalOcean? (UX similar; Vultr suele salir un poco más barato).
-- ¿Infra compartida desde el día 1 o Postgres/RabbitMQ propios hasta la 2da app?
+- ✅ **Infra compartida desde el día 1** (decidido 2026-06-24). Ver §8 — se
+  monta `~/infra/` con Postgres + RabbitMQ compartidos *antes* de levantar
+  finanzas-ong, porque **crypto-market-pulse** (segunda app) está por
+  deployarse pronto y no vale la pena migrar después.
 - ¿Caddy o Traefik como reverse proxy? (Caddy = TLS automático y config simple).
 - ¿Dominio propio nuevo o subdominio de uno existente?
 - ¿La ONG necesita Messenger/colas, o se puede simplificar el stack?
+  (Hoy **no** — finanzas-ong corre sin el profile `queues`, así que no usa
+  RabbitMQ; el Rabbit compartido lo va a estrenar crypto-market-pulse si usa
+  colas.)
+
+---
+
+## 8. Próximos pasos — Fase 3: infra compartida (PENDIENTE, retomar acá)
+
+> **Estado de la sesión 2026-06-24:** el repo `finanzas-ong` ya está clonado
+> en el VPS (`~/ong`) vía deploy key de solo lectura (ver Fase 5 §1). **No** se
+> levantaron contenedores todavía. Se decidió, antes de levantar nada, montar
+> la **infra compartida** (Fase 3) porque crypto-market-pulse viene en camino.
+> El próximo Claude debe arrancar por acá.
+
+### Qué hay que hacer (orden sugerido)
+
+1. **Red Docker compartida** en el VPS:
+   ```bash
+   docker network create shared_network
+   ```
+
+2. **Montar `~/infra/docker-compose.yml`** (siempre arriba, independiente de
+   las apps) con:
+   - `reverse-proxy` — **Caddy** (TLS automático Let's Encrypt; enruta cada
+     subdominio al `frontend` de la app correspondiente).
+   - `postgres` — `pgvector/pgvector:pg15`, volumen persistente, en
+     `shared_network`.
+   - `rabbitmq` — `rabbitmq:3-management`, volumen persistente, en
+     `shared_network`. (Opcional de arranque: finanzas-ong no usa colas; se
+     puede levantar igual para tenerlo listo para crypto-market-pulse, o
+     diferirlo hasta que la primera app con `queues` lo necesite.)
+
+3. **Por cada app, en la infra compartida:**
+   - Postgres: crear base + usuario dedicados (`CREATE DATABASE ong; CREATE
+     USER ong_user ...`). Una base por app, aisladas.
+   - RabbitMQ: crear un vhost por app (solo si la app usa colas).
+
+4. **Adaptar el compose de finanzas-ong (`~/ong`) para infra compartida:**
+   - **Quitar** los servicios `database` (y `rabbitmq`, que ya no se levanta
+     por el profile) del stack de la app — la app deja de tener su propia DB.
+   - Conectar `backend`/`scheduler` a `shared_network` (red externa).
+   - Apuntar `DATABASE_URL` / `BACKEND_DATABASE_URL` al host `postgres` de la
+     infra compartida (por nombre de servicio en la red), con la base/usuario
+     creados en el paso 3.
+   - **Cuidado:** este cambio toca `docker-compose*.yml`, que vienen de Oliva.
+     Decidir si se hace solo en el VPS (override local, no commiteado) o si se
+     promueve a un `docker-compose.shared.yml` versionado en el repo. Ver la
+     deuda de Oliva: Epic A (flags de instalación) / patrón de infra compartida
+     todavía no es capacidad nativa del framework — hoy es manual por app.
+
+5. **Recién entonces** seguir con Fase 5 §2: `.env` de prod, build, `up -d`,
+   migraciones, health check.
+
+### Punto abierto a definir al retomar
+
+- **¿Dónde vive la definición de la infra compartida?** Candidatos: un repo
+  propio `~/infra` (no versionado o repo aparte), o documentarlo como patrón
+  reutilizable en Oliva. Como crypto-market-pulse también lo va a consumir,
+  conviene que `~/infra` sea su propio repo/dir reproducible, no algo armado a
+  mano y olvidado. Definir con el usuario.
+- **Variables de conexión:** finanzas-ong hoy tiene `DATABASE_URL` apuntando a
+  `database` (servicio propio). Al migrar, apuntar al `postgres` compartido sin
+  romper el dev local (donde se sigue usando el `database` del override).

@@ -1,5 +1,20 @@
 # Registro de commits del agente
 
+## [FASE 3 — decisión] docs: ir a infra compartida antes de levantar la app
+**Hash:** (pendiente — ver commit de este cambio)
+**Rama:** `main`
+**Fecha:** 2026-06-24
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `docs/deploy-vps-planificacion.md` | modificado | Marca como decidida la "infra compartida desde el día 1" en §7; agrega §8 "Próximos pasos — Fase 3" con el plan detallado de retomada (red `shared_network`, `~/infra/` con Postgres+RabbitMQ+Caddy, base/vhost por app, adaptación del compose de finanzas-ong); actualiza el "Estado" del doc apuntando a §8 como próximo paso |
+
+### Justificación
+El usuario confirmó que crypto-market-pulse (segunda app sobre Oliva) está por deployarse pronto, así que en vez de levantar finanzas-ong con su Postgres/RabbitMQ propios y migrar después, se decide montar la infra compartida (Fase 3 del plan) **antes** de levantar la app. Esto evita re-tocar todo cuando aparezca la segunda app y aprovecha el droplet de 1 GB (la motivación original de la infra compartida: no multiplicar Postgres/RabbitMQ en idle por cada app). Se documentó como §8 un punto de retomada explícito porque acá termina la sesión y el próximo Claude tiene que arrancar por la infra compartida, no por el `up -d` de la app. NOTA: finanzas-ong no usa colas (sin profile `queues`), así que el RabbitMQ compartido es opcional de arranque — lo estrenará crypto-market-pulse si usa Messenger.
+
+---
+
 ## [FASE 5 — ejecución] docs: repo privado en GitHub + deploy key del VPS
 **Hash:** `b17b69b`
 **Rama:** `main`
