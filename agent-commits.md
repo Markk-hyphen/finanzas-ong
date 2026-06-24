@@ -1,5 +1,25 @@
 # Registro de commits del agente
 
+## [FASE 5 — prep] merge: oliva-upstream/main (cierre del gap de upgrade manual)
+**Hash:** `7bf530e` (merge) precedido por `1cbf55d`
+**Rama:** `main`
+**Fecha:** 2026-06-24
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `.env.example` | modificado (`1cbf55d`) | Iguala el comentario de `COMPOSE_PROFILES` al de Oliva upstream (menciona Mercure embebido y formato de lista de perfiles), para que el merge no generara un conflicto trivial |
+| `CLAUDE.md` | conflicto resuelto (ours) | Se mantuvo la sección "Convención de idioma en el código", específica de finanzas-ong y ausente en Oliva — no era contenido en conflicto real, solo posición de líneas |
+| `claude-commands.md` | conflicto resuelto (ours, add/add) | Oliva trajo una versión vieja de `claude reiniciar` sin el flag `-f` ni el path de memoria correcto; se conservó la versión local (`[x=60] [-f]`, memoria en `-home-marcos-finanzas-ong`) |
+| `README.md` | merge automático | Se actualizó al README genérico de Oliva más reciente (tabla de profiles, badges, arquitectura) — finanzas-ong nunca lo customizó, así que no hay pérdida de contenido propio |
+| `oliva-upgrade-optional-services.md` | nuevo (vía merge) | Doc de spec del framework que documenta el upgrade de Compose profiles; llega tal cual desde Oliva |
+| `docker-compose.yml`, `docker-compose.override.yml`, `docker-compose.prod.yml` | sin cambios | Ya eran idénticos a `oliva-upstream/main` (port a mano previo, commit `03241e1`), el merge no tocó nada ahí |
+
+### Justificación
+finanzas-ong forkeó Oliva en el commit `b5e5e4f` y desde entonces venía portando los upgrades del framework a mano (ver `03241e1`), generando deuda: 6 commits de Oliva (`59b78f3`...`4236b5d`) quedaban "huérfanos", sin reflejarse en el historial de finanzas-ong aunque su contenido funcional ya estuviera replicado. El usuario preguntó si era viable evitar el port a mano a futuro. Se confirmó que sí: como finanzas-ong comparte historia real con Oliva (hay merge-base), un `git merge oliva-upstream/main` normal funciona — los conflictos solo aparecen en los pocos archivos que ambos repos tocan (`CLAUDE.md`, `claude-commands.md`, `README.md`, `.env.example`), nunca en el código específico de la app (entidades, controllers, frontend SPA), que vive en paths que Oliva no conoce. Se hizo el merge para cerrar el gap formalmente y dejar `main` alineado 1:1 con `oliva-upstream/main` como base limpia antes de crear el repo remoto propio de finanzas-ong. Este mecanismo (`git fetch oliva-upstream && git merge oliva-upstream/main`) queda como el procedimiento estándar para futuros upgrades de Oliva, reemplazando el port a mano. Se documentó también del lado de Oliva (`/home/marcos/app`) para que quede registrado como procedimiento recomendado para cualquier fork.
+
+---
+
 ## [META] feat: flag -f en `claude reiniciar` para saltar estimación de contexto
 **Hash:** `3b5780b`
 **Rama:** `main`
