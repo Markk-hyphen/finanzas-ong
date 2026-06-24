@@ -1,7 +1,7 @@
 # Registro de commits del agente
 
 ## [FASE 3 — decisión] docs: ir a infra compartida antes de levantar la app
-**Hash:** (pendiente — ver commit de este cambio)
+**Hash:** `9c5f0a1`
 **Rama:** `main`
 **Fecha:** 2026-06-24
 
