@@ -65,7 +65,7 @@ services:
       app_network:
       proxy_net:
         aliases:
-          - CHANGE-THIS-ALIAS-frontend   # ej. ong-frontend, crypto-frontend
+          - ong-frontend
 
 networks:
   # Red privada de ESTA app, project-scoped: con `-p ong` queda `ong_app_network`,
