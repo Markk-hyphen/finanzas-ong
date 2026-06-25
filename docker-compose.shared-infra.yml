@@ -26,9 +26,9 @@
 # ── Requisitos antes de usar este overlay ──────────────────────────────────
 #   1. Las redes externas `proxy_net` y `data_net` deben existir (las crea el
 #      repo de infra: `docker network create proxy_net && ... data_net`).
-#   2. DATABASE_URL / BACKEND_DATABASE_URL (en .env / .env.backend de prod)
-#      deben apuntar al Postgres compartido (host `postgres`), no a `database`
-#      local — lo provisiona `infra/scripts/provision-postgres.sh`.
+#   2. Descomentar/setear DATABASE_URL en .env.backend de prod apuntando al
+#      Postgres compartido (host `postgres`), no a `database` local — con el
+#      usuario/base que provisiona `infra/scripts/provision-postgres.sh`.
 #   3. Reemplazar el placeholder `CHANGE-THIS-ALIAS-frontend` por un alias de
 #      red ÚNICO por app (ej. `ong-frontend`) y agregar el bloque correspondiente
 #      en `infra/caddy/Caddyfile` apuntando a ese alias.

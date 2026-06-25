@@ -171,7 +171,7 @@ Copy `.env.example` to `.env` and fill in your values. Grouped by service:
 | Variable | Description |
 |---|---|
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` / `POSTGRES_VERSION` | Database credentials and Postgres version |
-| `DATABASE_URL` / `BACKEND_DATABASE_URL` | Doctrine connection strings |
+| `DATABASE_URL` | Doctrine connection string. Standalone: lives in `.env`, credentials must match `POSTGRES_*`. Shared infra: uncomment/set the override in `.env.backend` |
 | `APP_SECRET` | Symfony secret key |
 | `JWT_PASSPHRASE` | JWT signing passphrase |
 | `SERVER_NAME` | Domain name (default: `localhost`) |
