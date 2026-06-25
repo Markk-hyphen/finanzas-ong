@@ -49,6 +49,49 @@ La base de datos usa la imagen `pgvector/pgvector:pg${POSTGRES_VERSION}` — es 
 
 Mercure (`/.well-known/mercure`) está siempre activo vía el hub de Caddy (`backend/frankenphp/Caddyfile`); la demo de canvas en vivo (`backend/public/live.php` + `frontend/src/js/live.js`) muestra que funciona out of the box.
 
+## Infra compartida (opcional): `docker-compose.shared-infra.yml`
+
+Overlay genérico, **opt-in**, para cuando varias apps Oliva comparten un mismo
+VPS con Postgres/RabbitMQ/reverse-proxy en un repo de infra separado (no es
+código de Oliva ni de ninguna app — es su propia capa de Infrastructure-as-Code,
+ver convención en `claude-commands.md`/memoria del proyecto de infra).
+
+Se apila encima de `docker-compose.prod.yml`, no lo reemplaza:
+
+```bash
+# Standalone (DB propia, de siempre):
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Con infra compartida (project name ÚNICO con -p, sin DB/Rabbit locales):
+docker compose -p ong \
+  -f docker-compose.yml -f docker-compose.prod.yml \
+  -f docker-compose.shared-infra.yml up -d backend frontend scheduler
+```
+
+Qué hace (requiere Docker Compose ≥ 2.24, por la tag de merge `!override`):
+- Anula `depends_on: database` de `backend`/`scheduler` con `!override {}` —
+  necesario porque los merges de Compose son aditivos: omitir una clave en el
+  overlay no la borra, hay que reemplazarla explícitamente.
+- Anula los `ports` de `frontend` (deja de exponer `:80` al host — en infra
+  compartida el único que publica puertos es el reverse-proxy de infra).
+- Desactiva `database`/`rabbitmq` locales con un profile inerte
+  (`disabled-in-shared-infra`) para que un `up -d` sin listar servicios no los
+  levante por accidente.
+- **Topología de red (split, ver README de infra):** `frontend` → red privada
+  de la app + `proxy_net` (alias único); `backend`/`scheduler` → red privada +
+  `data_net`. El frontend no toca `data_net` (no llega a la DB). Las redes
+  `proxy_net`/`data_net` son externas (las crea el repo de infra).
+
+**Cada fork que use este overlay debe:** (1) reemplazar el placeholder
+`CHANGE-THIS-ALIAS-frontend` por un alias único (ej. `ong-frontend`); (2)
+**arrancar con `-p <appname>` único** — eso hace su red privada
+`<appname>_app_network` y evita que el DNS interno colisione con otra app (ver
+[`infra` README, "Topología de red"]); (3) apuntar `DATABASE_URL`/`BACKEND_DATABASE_URL`
+(en `.env`/`.env.backend` de prod) al Postgres compartido (`postgres`), no a `database`.
+
+Es reversible: si una app deja de usar infra compartida, simplemente no se pasa
+ese `-f` al arrancar — `docker-compose.prod.yml` standalone sigue intacto.
+
 ## Variables de entorno
 
 Ver `.env.example` como referencia. Agrupadas por servicio:
