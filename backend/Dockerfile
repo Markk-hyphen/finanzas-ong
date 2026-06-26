@@ -77,7 +77,11 @@ RUN composer dump-autoload --optimize
 ENTRYPOINT ["docker-entrypoint"]
 
 HEALTHCHECK --start-period=60s CMD curl -f http://localhost:2019/metrics || exit 1
-CMD [ "sh", "-c", "sleep 3 && frankenphp run --config /etc/caddy/Caddyfile" ]
+# NO envolver en `sh -c`: el entrypoint distingue su bloque de setup (genera JWT,
+# espera la DB, migra) con `[ "$1" = 'frankenphp' ]`. Si el CMD es `sh -c "..."`,
+# $1 pasa a ser `sh` y TODO ese bloque se saltea silenciosamente en prod.
+# La race de DB la cubre el wait-for-db del entrypoint (60 reintentos), no un sleep.
+CMD [ "frankenphp", "run", "--config", "/etc/caddy/Caddyfile" ]
 
 # Dev FrankenPHP image
 FROM frankenphp_base AS frankenphp_dev
