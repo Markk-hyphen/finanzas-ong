@@ -101,6 +101,14 @@ Estos pasos se repiten en **cada** deploy de **cada** fork sobre infra
 compartida. El código viene del `git pull`, pero estos NO (o requieren un valor
 único por app):
 
+> **Atajo para redeploys:** los pasos 1, 6 y 7 (pull + build + up) están
+> envueltos en `scripts/deploy.sh`. Después del setup inicial (pasos 2-5, que
+> se hacen una sola vez por app), cada redeploy es solo:
+> `cd ~/<app> && ./scripts/deploy.sh` (toma el `app_name` del nombre del dir;
+> hace `down` antes del `up` para no dejar containers stale). Si la app usa
+> cron, editar el script o agregar `--profile cron`. Los pasos de abajo quedan
+> como referencia de qué hace cada cosa.
+
 1. **En el VPS, traer el código:** `cd ~/<app> && git pull` (trae el overlay y
    el `.env.backend` con el `DATABASE_URL` comentado).
 2. **Crear el `.env`** (gitignored → NO viene en el pull): `cp .env.example .env`.
