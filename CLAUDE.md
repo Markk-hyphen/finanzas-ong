@@ -38,7 +38,7 @@ Además de `database`, `backend` y `frontend`, `docker-compose.yml` define:
 | Servicio | Para qué | Si la app no lo necesita |
 |---|---|---|
 | `rabbitmq` | Broker para Symfony Messenger (colas `ingest`/`enrich` de ejemplo, comentadas) | Quitar el bloque `rabbitmq` y las dependencias `depends_on: rabbitmq` de `backend`/`scheduler`/`worker` |
-| `scheduler` | Ejecuta `supercronic` con `backend/scheduler/crontab` para tareas periódicas | Quitar el bloque `scheduler` (y `backend/scheduler/crontab`) |
+| `scheduler` | Ejecuta `supercronic` con `backend/scheduler/crontab` para tareas periódicas. **Opt-in:** vive tras el profile `cron`, no arranca por defecto (mismo criterio que `rabbitmq`/`queues`). El crontab base viene vacío. | Por defecto ya no corre. Una app que necesite cron activa el profile (`--profile cron` o listando `scheduler` en `up`) y llena `backend/scheduler/crontab`. Para eliminarlo del todo: quitar el bloque `scheduler` y `backend/scheduler/crontab` |
 | `worker` (en `docker-compose.override.yml`, dev) | Corre `bin/console messenger:consume` | Quitar el bloque `worker` si no hay mensajes async |
 
 La base de datos usa la imagen `pgvector/pgvector:pg${POSTGRES_VERSION}` — es un Postgres normal con la extensión `vector` compilada y una migración que la habilita (`CREATE EXTENSION IF NOT EXISTS vector`). No tiene costo si la app no usa tipos `vector`; no hace falta quitarla.
@@ -65,7 +65,10 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 # Con infra compartida (project name ÚNICO con -p, sin DB/Rabbit locales):
 docker compose -p ong \
   -f docker-compose.yml -f docker-compose.prod.yml \
-  -f docker-compose.shared-infra.yml up -d backend frontend scheduler
+  -f docker-compose.shared-infra.yml up -d
+# (sin listar servicios: el profile inerte excluye database/rabbitmq y el
+#  profile `cron` excluye scheduler. Si la app necesita cron, agregar
+#  `--profile cron` y llenar backend/scheduler/crontab.)
 ```
 
 Qué hace (requiere Docker Compose ≥ 2.24, por la tag de merge `!override`):

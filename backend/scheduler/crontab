@@ -1,1 +1,5 @@
-*/5 * * * * bin/console app:sources:poll -v
+# Crontab del scheduler (supercronic). Vacío por defecto: Oliva no asume
+# ninguna tarea periódica. Cada fork que necesite cron activa el profile
+# `cron` (ver docker-compose.yml) y agrega aquí sus líneas. Ejemplo:
+#
+#   */5 * * * * bin/console app:my-command -v

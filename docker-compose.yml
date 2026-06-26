@@ -55,6 +55,12 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    # Opt-in: solo arranca si se activa el profile `cron` (--profile cron o
+    # listándolo explícito en `up`). Una app sin tareas periódicas no lo levanta
+    # y no paga un container corriendo un crontab vacío. Mismo criterio que
+    # `rabbitmq` (profile `queues`). Cada fork que necesite cron activa el
+    # profile y llena `backend/scheduler/crontab`.
+    profiles: ["cron"]
     restart: unless-stopped
     env_file:
       - .env
