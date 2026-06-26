@@ -225,3 +225,15 @@ git log --oneline -3               # último commit con mensaje claro
 ```
 
 Si el proyecto usa `agent-commits.md`, verificar que el último commit tenga su entrada correspondiente.
+
+## Notas operativas de finanzas-ong en el VPS
+
+### Claves JWT — migración pendiente (una sola vez)
+
+Las claves JWT actuales están dentro del container `ong-backend-1` (generadas a mano el 2026-06-26 antes de que existiera el bind-mount). Antes del próximo rebuild hay que migrarlas al host para que persistan:
+
+```bash
+mkdir -p ~/ong/secrets/jwt && docker cp ong-backend-1:/app/config/jwt/. ~/ong/secrets/jwt/
+```
+
+Una vez hecho esto, los rebuilds futuros montan `~/ong/secrets/jwt/` en el container y las claves **nunca se regeneran**. No hace falta repetir este paso — es una migración de una sola vez.
