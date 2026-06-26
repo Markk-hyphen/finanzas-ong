@@ -136,6 +136,35 @@ Lexik devuelve `"Invalid credentials."` en inglés cuando el login falla. En vez
 ### Justificación
 Se extrae `navigate()` y `setNav()` a `nav.js` para evitar dependencias circulares con `main.js` (que importa las views, que necesitan navegar). El `GET /api/me` se agrega al backend porque el JWT de Lexik solo contiene email, no ID; el frontend necesita el ID para identificar el balance propio en el dashboard. El build de Vite confirma que todos los módulos resuelven correctamente (13 modules, 0 errores).
 
+## [DEPLOY 2] Merge oliva-upstream/main — fix entrypoint prod + scheduler + JWT keys
+**Hash:** `9b4233d`
+**Rama:** `main`
+**Fecha:** 2026-06-26
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `backend/Dockerfile` | modificado | CMD de prod sin wrapper `sh -c` → `$1=frankenphp`, el bloque de setup del entrypoint (JWT + wait-db + migrate) ahora corre en prod |
+| `docker-compose.prod.yml` | modificado | `scheduler`: agrega `command: supercronic` (en prod heredaba el CMD del backend y corría frankenphp en vez del cron). `backend`: bind-mount `./secrets/jwt:/app/config/jwt` para persistir las claves JWT en el host |
+| `.gitignore` | modificado | Ignora `secrets/` |
+| `CLAUDE.md` | modificado | Runbook actualizado: migraciones automáticas, paso de backup de claves JWT |
+
+### Justificación
+Bug root cause: el CMD de prod era `sh -c "sleep 3 && frankenphp run ..."`, así que el entrypoint recibía `$1=sh` y su guard `[ "$1" = 'frankenphp' ]` nunca matcheaba. El bloque de setup (generación de claves JWT, wait-for-db, migraciones) se salteaba silenciosamente en producción desde el día uno — solo corría en dev, donde el stage redefine el CMD como `frankenphp` directamente. Se detectó al hacer el primer login real: `JWTEncodeFailureException` porque no había `private.pem`. El sleep era un parche de race de DB que el propio wait-for-db (60 reintentos) cubre mejor. Las claves JWT se persisten en `./secrets/jwt` (bind-mount al host, gitignored) en vez de regenerarse en cada boot: tokens estables, sin deslogueos por recreate de container.
+
+## [DEPLOY 1] feat: comando app:member:create para crear socios desde consola
+**Hash:** `569feac`
+**Rama:** `main`
+**Fecha:** 2026-06-26
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `backend/src/Command/CreateMemberCommand.php` | nuevo | Comando Symfony `app:member:create <name> <email> <password> [--admin]` |
+
+### Justificación
+No hay sistema de registro en la app (fuera de scope del MVP). Para crear el primer usuario admin en prod sin hacer SQL a mano ni depender de fixtures de dev, se crea un comando de consola que usa `UserPasswordHasherInterface` de Symfony (no `password_hash` manual) y valida que el email no exista. Con `--admin` asigna `ROLE_ADMIN`; sin el flag solo tiene `ROLE_MEMBER` (que la entidad agrega siempre en `getRoles()`).
+
 ## [FASE 3] feat: Phase 3 — REST API with JWT auth and roles
 **Hash:** `f406e0b`
 **Rama:** `main`
