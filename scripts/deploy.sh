@@ -25,10 +25,12 @@ if [[ "${SKIP_PULL:-0}" != "1" ]]; then
   git pull
 fi
 
-# down borra los containers viejos (incluido un scheduler con crontab obsoleto)
-# antes de recrearlos: evita que quede un container stale corriendo.
+# down borra los containers viejos antes de recrearlos. --remove-orphans barre
+# también los containers de servicios que ya NO están en la config activa (ej.
+# un scheduler que pasó a estar detrás de un profile): sin esa flag, Compose los
+# ignora y quedan corriendo stale.
 echo ">> down"
-"${COMPOSE[@]}" down
+"${COMPOSE[@]}" down --remove-orphans
 
 echo ">> up -d --build"
 "${COMPOSE[@]}" up -d --build
