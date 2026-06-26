@@ -19,9 +19,11 @@ COMPOSE=(docker compose -p "$APP_NAME"
   -f docker-compose.shared-infra.yml)
 
 echo ">> down de '$APP_NAME' desde $PWD"
-# --remove-orphans barre también containers de servicios que ya no están en la
-# config activa (ej. un scheduler que pasó a estar detrás de un profile).
-# NO se pasa -v: los volúmenes (DB, secrets) se preservan.
-"${COMPOSE[@]}" down --remove-orphans
+# COMPOSE_PROFILES=cron mete al scheduler (y cualquier servicio con profile) en
+# scope para el down: sin esto, un servicio detrás de un profile no se baja —
+# `down` lo saltea (profile inactivo) y --remove-orphans tampoco lo toca (sigue
+# definido en el YAML, no es huérfano). NO se pasa -v: volúmenes (DB, secrets)
+# se preservan.
+COMPOSE_PROFILES=cron "${COMPOSE[@]}" down --remove-orphans
 
 echo ">> OK, servicios de '$APP_NAME' abajo (volúmenes intactos)."

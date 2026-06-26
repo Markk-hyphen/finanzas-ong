@@ -25,12 +25,14 @@ if [[ "${SKIP_PULL:-0}" != "1" ]]; then
   git pull
 fi
 
-# down borra los containers viejos antes de recrearlos. --remove-orphans barre
-# también los containers de servicios que ya NO están en la config activa (ej.
-# un scheduler que pasó a estar detrás de un profile): sin esa flag, Compose los
-# ignora y quedan corriendo stale.
+# down borra los containers viejos antes de recrearlos.
+# COMPOSE_PROFILES=cron mete al scheduler en scope SOLO para el down: un servicio
+# detrás de un profile no se baja con `down` (profile inactivo) ni con
+# --remove-orphans (sigue definido en el YAML, no es huérfano real) → quedaría
+# corriendo stale. Activando el profile acá, el down sí lo apaga. El `up` de
+# abajo NO lleva el profile, así que el scheduler no se vuelve a levantar.
 echo ">> down"
-"${COMPOSE[@]}" down --remove-orphans
+COMPOSE_PROFILES=cron "${COMPOSE[@]}" down --remove-orphans
 
 echo ">> up -d --build"
 "${COMPOSE[@]}" up -d --build
