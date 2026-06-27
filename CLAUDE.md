@@ -239,12 +239,8 @@ Si el proyecto usa `agent-commits.md`, verificar si el último commit merece una
 
 ## Notas operativas de finanzas-ong en el VPS
 
-### Claves JWT — migración pendiente (una sola vez)
+### Claves JWT
 
-Las claves JWT actuales están dentro del container `ong-backend-1` (generadas a mano el 2026-06-26 antes de que existiera el bind-mount). Antes del próximo rebuild hay que migrarlas al host para que persistan:
+Las claves viven en el host en `~/ong/secrets/jwt/{private,public}.pem`, montadas al container vía bind-mount (`docker-compose.prod.yml`: `./secrets/jwt:/app/config/jwt`). El host es la fuente de verdad: el container solo las ve por el mount, persisten entre rebuilds y **nunca se regeneran** (recrear el container no desloguea a nadie). Mount verificado funcionando.
 
-```bash
-mkdir -p ~/ong/secrets/jwt && docker cp ong-backend-1:/app/config/jwt/. ~/ong/secrets/jwt/
-```
-
-Una vez hecho esto, los rebuilds futuros montan `~/ong/secrets/jwt/` en el container y las claves **nunca se regeneran**. No hace falta repetir este paso — es una migración de una sola vez.
+**Pendiente (staging):** hoy la `private.pem` no tiene passphrase — decisión consciente de etapa staging (sin data sensible). Ponerle passphrase y backupear `{private,public}.pem` + `JWT_PASSPHRASE` al gestor de claves antes de pasar a data real.
