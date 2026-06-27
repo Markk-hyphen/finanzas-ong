@@ -141,12 +141,8 @@ compartida. El código viene del `git pull`, pero estos NO (o requieren un valor
    desloguea a nadie). Para restaurar en un host nuevo: poné los `.pem` ahí antes
    del `up`.
 10. **Health:** `docker exec <app>-backend-1 curl -s http://localhost/health` → `{"status":"ok"}`.
-11. **(Opt-in, staging) Poblar base de datos:** construir la imagen staging y cargar fixtures:
-    ```bash
-    docker compose -f docker-compose.yml -f docker-compose.prod.yml build --target frankenphp_staging backend
-    docker exec <app>-backend-1 bin/console doctrine:fixtures:load --group=staging --no-interaction
-    ```
-    La imagen prod no tiene este comando (instalada con `--no-dev`): guard estructural contra seedear producción por accidente.
+11. **(Opt-in) Levantar el stack de staging:** staging es una app aparte en el VPS
+    con su propia DB desechable. Ver **"Runbook de staging"** más abajo.
 12. **(Cuando haya dominio)** vhost en `~/infra/caddy/Caddyfile` apuntando al
     alias `<app>-frontend` + `docker exec infra-reverse-proxy-1 caddy reload`.
 
@@ -156,6 +152,59 @@ compartida. El código viene del `git pull`, pero estos NO (o requieren un valor
 > (no-superuser) y esa migración falla con *"permission denied to create
 > extension"*. Por eso `provision-postgres.sh` crea la extensión como superuser
 > al provisionar; la migración la encuentra con su `IF NOT EXISTS` y hace no-op.
+
+### Runbook de staging (pasos manuales, primera vez)
+
+Staging es **una app más** en el VPS: misma infra compartida, pero DB propia
+desechable y project name propio (`-p <app>-staging`). No interfiere con el
+stack de producción.
+
+> **Atajo para redeploys:** `./scripts/deploy-staging.sh` (ejecuta build + up
+> + migraciones + `fixtures:load` en una sola llamada). Los pasos de abajo
+> documentan el setup inicial (una sola vez) y la lógica de cada paso.
+
+1. **Provisionar la DB de staging** en el Postgres compartido, desde `~/infra`:
+   `./scripts/provision-postgres.sh <app>_staging_db <app>_staging_user`
+   → imprime el `DATABASE_URL` con la password generada (guardarla en el
+   gestor de claves). El script crea la extensión `vector` como superuser.
+2. **Crear `.env.staging`** (gitignored → NO viene del pull):
+   `cp .env.staging.example .env.staging`
+   Setear `DATABASE_URL` con la URL impresa en el paso anterior
+   (host `postgres`, `<app>_staging_user`, `<app>_staging_db`).
+3. **Build** de la imagen staging (tag `app-backend-staging:1.0`, sin pisar prod):
+   ```bash
+   docker compose -p <app>-staging \
+     -f docker-compose.yml -f docker-compose.prod.yml \
+     -f docker-compose.shared-infra.yml -f docker-compose.staging.yml \
+     build backend
+   ```
+4. **Up** (project name `-p <app>-staging` propio; staging como app en shared-infra):
+   ```bash
+   docker compose -p <app>-staging \
+     -f docker-compose.yml -f docker-compose.prod.yml \
+     -f docker-compose.shared-infra.yml -f docker-compose.staging.yml \
+     up -d
+   ```
+   Env files que se cargan: `.env` → `.env.backend` → `.env.staging`
+   (`.env.staging` carga último y pisa `DATABASE_URL` y `APP_ENV`).
+5. **Migraciones:** automáticas en el entrypoint. Verificar:
+   `docker exec <app>-staging-backend-1 bin/console doctrine:migrations:status`
+6. **Seeding:** la imagen `frankenphp_staging` sí tiene `doctrine:fixtures:load`
+   (a diferencia de prod). La DB de staging es desechable — la purga es inocua:
+   ```bash
+   docker exec <app>-staging-backend-1 \
+     bin/console doctrine:fixtures:load --group=staging --no-interaction
+   ```
+7. **Health:** `docker exec <app>-staging-backend-1 curl -s http://localhost/health`
+
+Para reiniciar con datos frescos: `SKIP_PULL=1 ./scripts/deploy-staging.sh`.
+Para bajar staging: `docker compose -p <app>-staging ... down -v`.
+
+> **env_file de staging:** `docker-compose.staging.yml` usa `env_file: !override`
+> (Compose >= 2.24, mismo requisito que shared-infra) para REEMPLAZAR (no concatenar)
+> la lista del base. Sin `!override`, Compose concatena listas → `.env`/`.env.backend`
+> aparecerían duplicados. Con él, la lista queda `[.env, .env.backend, .env.staging]`
+> y `.env.staging` carga último, pisando solo `DATABASE_URL` y `APP_ENV`.
 
 ## Variables de entorno
 

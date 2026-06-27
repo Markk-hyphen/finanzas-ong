@@ -1,5 +1,6 @@
 .idea
 .env
+.env.staging
 !backend/.env
 frontend/dist/
 frontend/src/.vite/

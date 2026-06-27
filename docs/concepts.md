@@ -480,13 +480,19 @@ Nunca hereda de `frankenphp_dev` — staging debe ser prod + tooling de seeding,
 
 ### Uso (en staging)
 
+> ⚠️ **`fixtures:load` PURGA la base antes de cargar** (DELETE/TRUNCATE de todas las
+> tablas, salvo `--append`). Correr SOLO contra una DB de staging dedicada, **nunca**
+> contra la DB de una app productiva en infra compartida. El guard de la imagen
+> `--no-dev` no protege esto. Ver Epic E, "Deuda crítica": staging debe ser una app
+> aparte a nivel infra, con su propia DB.
+
 ```bash
 # 1. Construir imagen staging
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   build --target frankenphp_staging backend
 
-# 2. Cargar fixtures
-docker exec <app>-backend-1 bin/console doctrine:fixtures:load \
+# 2. Cargar fixtures (contra la DB de STAGING, no la de prod)
+docker exec <app>-staging-backend-1 bin/console doctrine:fixtures:load \
   --group=staging --no-interaction
 ```
 
