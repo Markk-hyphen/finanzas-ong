@@ -41,14 +41,14 @@ async function request(method, path, body = null) {
 }
 
 export const api = {
-    login: async (email, password) => {
+    login: async (login, password) => {
         const r = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ login, password }),
         });
         const d = await r.json();
-        if (!r.ok) throw new Error('Email o contraseña incorrectos.');
+        if (!r.ok) throw new Error('Usuario o contraseña incorrectos.');
         return d;
     },
 

@@ -12,8 +12,8 @@ export async function renderLogin(el) {
                 <h5 class="fw-semibold mb-4">Iniciar sesión</h5>
                 <form id="login-form">
                   <div class="mb-3">
-                    <label class="form-label small">Email</label>
-                    <input type="email" id="f-email" class="form-control" autocomplete="email" required />
+                    <label class="form-label small">Email o usuario</label>
+                    <input type="text" id="f-login" class="form-control" autocomplete="username" required />
                   </div>
                   <div class="mb-4">
                     <label class="form-label small">Contraseña</label>
@@ -38,7 +38,7 @@ export async function renderLogin(el) {
 
         try {
             const { token } = await api.login(
-                document.getElementById('f-email').value,
+                document.getElementById('f-login').value,
                 document.getElementById('f-pass').value,
             );
             storage.setToken(token);

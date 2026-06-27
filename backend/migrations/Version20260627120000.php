@@ -17,14 +17,14 @@ final class Version20260627120000 extends AbstractMigration
     public function up(Schema $schema): void
     {
         $this->addSql("ALTER TABLE members ADD COLUMN username TEXT");
-        $this->addSql("UPDATE members SET username = split_part(email, '@', 1)");
+        $this->addSql("UPDATE members SET username = lower(split_part(email, '@', 1))");
         $this->addSql("ALTER TABLE members ALTER COLUMN username SET NOT NULL");
-        $this->addSql('CREATE UNIQUE INDEX uniq_members_username ON members (username)');
+        $this->addSql('CREATE UNIQUE INDEX UNIQ_45A0D2FFF85E0677 ON members (username)');
     }
 
     public function down(Schema $schema): void
     {
-        $this->addSql('DROP INDEX uniq_members_username');
+        $this->addSql('DROP INDEX UNIQ_45A0D2FFF85E0677');
         $this->addSql('ALTER TABLE members DROP COLUMN username');
     }
 }
