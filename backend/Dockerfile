@@ -127,3 +127,14 @@ RUN set -eux; \
 	composer dump-env prod; \
 	composer run-script --no-dev post-install-cmd; \
 	chmod +x bin/console; sync;
+
+# Staging FrankenPHP image — inherits from prod, adds seeding tooling (Foundry + fixtures)
+# Prod image is --no-dev so this command is unavailable there: structural guard against
+# accidentally seeding production.
+FROM frankenphp_prod AS frankenphp_staging
+
+RUN set -eux; \
+	composer install --no-cache --prefer-dist --no-autoloader --no-scripts --no-progress; \
+	composer dump-autoload --classmap-authoritative; \
+	composer run-script post-install-cmd; \
+	chmod +x bin/console; sync;

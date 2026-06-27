@@ -25,7 +25,6 @@ Ver `MANIFIESTO.md` para la especificación técnica completa (modelo de datos, 
 
 ## Stack
 
-Heredado de Oliva:
 
 | Capa | Tecnología |
 |---|---|
