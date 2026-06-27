@@ -176,7 +176,7 @@ Cuando el usuario pide que se le explique un concepto (`"explicame X"`, `"enseñ
 
 ## Protocolo de commits del agente
 
-Para proyectos donde se quiera dejar un registro detallado de cada cambio del agente (recomendado para trabajo autónomo o de varias sesiones), crear un `agent-commits.md` en la raíz del proyecto y registrar ahí **cada commit que realice el agente**, antes o junto con el commit de git.
+Para proyectos multi-sesión o de trabajo autónomo, `agent-commits.md` en la raíz del proyecto registra cambios del agente con formato detallado. **No se anota cada commit**: cuando el agente haga un cambio que le parezca interesante (una decisión de diseño, un fix con *por qué* no obvio, algo que afecte cómo se opera el proyecto), **le pregunta a Marcos si lo registra** — Marcos decide. Lo rutinario no se anota ni se pregunta.
 
 ### Formato
 
@@ -235,7 +235,7 @@ git status -s                      # sin archivos sin commitear (salvo intencion
 git log --oneline -3               # último commit con mensaje claro
 ```
 
-Si el proyecto usa `agent-commits.md`, verificar que el último commit tenga su entrada correspondiente.
+Si el proyecto usa `agent-commits.md`, verificar si el último commit merece una entrada (si es un cambio interesante, agregar; si es rutinario, omitir).
 
 ## Notas operativas de finanzas-ong en el VPS
 

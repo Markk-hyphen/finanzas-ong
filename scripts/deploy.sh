@@ -25,6 +25,12 @@ if [[ "${SKIP_PULL:-0}" != "1" ]]; then
   git pull
 fi
 
+# Docs internos: no pertenecen al host de prod. El código de la app vive
+# en los builds Docker; estos archivos no los necesita nadie en el server.
+echo ">> limpieza de docs internos"
+find . -maxdepth 1 -name "*.md" -delete
+rm -rf docs/
+
 # down borra los containers viejos antes de recrearlos.
 # COMPOSE_PROFILES=cron mete al scheduler en scope SOLO para el down: un servicio
 # detrás de un profile no se baja con `down` (profile inactivo) ni con
