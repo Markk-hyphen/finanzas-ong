@@ -26,6 +26,12 @@ services:
     image: app-backend-staging:1.0
     build:
       target: frankenphp_staging
+    # `environment:` tiene MAYOR precedencia que `env_file:` y que el ENV de la
+    # imagen. prod.yml setea `APP_ENV=production` acá, que pisaba .env.staging y
+    # rompía el seeding (production no está en bundles.php → Foundry/Fixtures no
+    # cargan). Override explícito a `staging` (sí está en bundles.php).
+    environment:
+      - APP_ENV=staging
     # !override reemplaza (no concatena) la lista del base: evita duplicados.
     # Requiere Docker Compose >= 2.24 (mismo requisito que shared-infra.yml).
     env_file: !override
@@ -37,6 +43,8 @@ services:
     image: app-backend-staging:1.0
     build:
       target: frankenphp_staging
+    environment:
+      - APP_ENV=staging
     env_file: !override
       - .env
       - .env.backend
