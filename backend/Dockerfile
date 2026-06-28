@@ -133,7 +133,10 @@ RUN set -eux; \
 # accidentally seeding production.
 FROM frankenphp_prod AS frankenphp_staging
 
+ENV APP_ENV=staging
+
 RUN set -eux; \
+	rm -f .env.local.php; \
 	composer install --no-cache --prefer-dist --no-autoloader --no-scripts --no-progress; \
 	composer dump-autoload --classmap-authoritative; \
 	composer run-script post-install-cmd; \
