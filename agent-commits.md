@@ -1,5 +1,25 @@
 # Registro de commits del agente
 
+## [STAGING — fix] fix(staging): alias de frontend derivado del project name (anti-colisión proxy_net)
+**Hash:** `fb51648ae1671b179065451f4bc2c70701257750`
+**Rama:** `main`
+**Fecha:** 2026-06-29
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `docker-compose.shared-infra.yml` | modificado | Alias del frontend en `proxy_net`: `ong-frontend` (hardcodeado) → `${COMPOSE_PROJECT_NAME:-app}-frontend` (derivado). Comentarios del requisito #3 y del bloque frontend reescritos para explicar el alias derivado |
+| `CLAUDE.md` | modificado | Sección shared-infra ("Cada fork debe…") y runbook (paso 5) ya no piden reemplazar el placeholder `CHANGE-THIS-ALIAS-frontend`; runbook de staging gana paso 8 (vhost `staging.<dominio>` propio, scp + caddy reload) |
+
+### Justificación
+**El bug:** `proxy_net` es una red **externa compartida** entre todos los stacks `-p` del VPS. El alias del frontend estaba hardcodeado (`ong-frontend`), así que prod (`-p ong`) y staging (`-p ong-staging`) registraban el **mismo** alias en esa red → el reverse-proxy de infra hacía round-robin entre ambos frontends y el dominio de prod podía rutear intermitentemente al frontend de staging (que pega a la DB desechable). Riesgo real para prod si staging quedaba up. Confirmado empíricamente con `docker compose config` (staging heredaba `ong-frontend`).
+
+**Por qué derivar del project name y no `!override` en `staging.yml`:** derivar el alias de `${COMPOSE_PROJECT_NAME}` resuelve la **clase entera** del bug con un cambio de una línea, es coherente con la línea ya existente que deriva el *network name* (`${COMPOSE_PROJECT_NAME:-app}_app_network`), no necesita `!override` sobre una lista anidada (más frágil de mergear), no toca `docker-compose.staging.yml`, y **elimina un paso manual** del runbook (ya no hay placeholder que reemplazar por fork). Verificado: `-p ong` sigue dando `ong-frontend` (idéntico a hoy → no toca prod en runtime ni rompe el Caddyfile), `-p ong-staging` da `ong-staging-frontend`.
+
+**Fuera de alcance (a propósito):** (a) `provision-postgres.sh` ya crea la extensión `vector` como superuser — el "posible bug" de la memoria era histórico, no requiere cambio; (b) la deuda `when@prod` (APP_ENV largo `production` no activa los bloques `when@prod`) es de optimización y tocarla impacta prod en runtime → se deja para tratar aparte. El vhost de staging en `~/infra/caddy/Caddyfile` se editó local pero NO va en este commit (infra es repo aparte, se sincroniza por scp).
+
+---
+
 ## [FASE 3 — decisión] docs: ir a infra compartida antes de levantar la app
 **Hash:** `9c5f0a1`
 **Rama:** `main`

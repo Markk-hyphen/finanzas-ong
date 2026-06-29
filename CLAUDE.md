@@ -85,12 +85,15 @@ Qué hace (requiere Docker Compose ≥ 2.24, por la tag de merge `!override`):
   `data_net`. El frontend no toca `data_net` (no llega a la DB). Las redes
   `proxy_net`/`data_net` son externas (las crea el repo de infra).
 
-**Cada fork que use este overlay debe:** (1) reemplazar el placeholder
-`CHANGE-THIS-ALIAS-frontend` por un alias único (ej. `ong-frontend`); (2)
-**arrancar con `-p <appname>` único** — eso hace su red privada
-`<appname>_app_network` y evita que el DNS interno colisione con otra app (ver
-[`infra` README, "Topología de red"]); (3) descomentar/setear `DATABASE_URL`
-en `.env.backend` de prod apuntando al Postgres compartido (`postgres`), no a `database`.
+**Cada fork que use este overlay debe:** (1) **arrancar con `-p <appname>` único**
+— eso hace su red privada `<appname>_app_network`, evita que el DNS interno
+colisione con otra app (ver [`infra` README, "Topología de red"]), y **deriva el
+alias del frontend en `proxy_net`** (`${COMPOSE_PROJECT_NAME}-frontend`): con
+`-p ong` → `ong-frontend`, con `-p ong-staging` → `ong-staging-frontend`. Ya no
+hace falta hardcodear un alias por app — el `-p` obligatorio lo resuelve y evita
+que dos stacks (ej. prod y staging) registren el mismo alias en la `proxy_net`
+compartida; (2) descomentar/setear `DATABASE_URL` en `.env.backend` de prod
+apuntando al Postgres compartido (`postgres`), no a `database`.
 
 Es reversible: si una app deja de usar infra compartida, simplemente no se pasa
 ese `-f` al arrancar — `docker-compose.prod.yml` standalone sigue intacto.
@@ -123,9 +126,9 @@ compartida. El código viene del `git pull`, pero estos NO (o requieren un valor
 4. **Setear el `DATABASE_URL`** en `~/<app>/.env.backend`: **descomentar** la
    línea y pegar la URL provisionada (host `postgres`, `<app>_user`, `<app>_db`).
    Al cargarse después de `.env`, pisa el `DATABASE_URL` standalone.
-5. **Alias de red único** en `docker-compose.shared-infra.yml`: reemplazar
-   `CHANGE-THIS-ALIAS-frontend` por `<app>-frontend` (esto sí se commitea en el
-   fork, una vez).
+5. **Alias de red:** nada que tocar — el alias del frontend en `proxy_net` se
+   deriva del `-p <app>` (`${COMPOSE_PROJECT_NAME}-frontend`). Solo asegurarse de
+   arrancar con `-p <app>` único (paso 7).
 6. **Build:** `docker compose -f docker-compose.yml -f docker-compose.prod.yml build`.
 7. **Up** (project name `-p <app>` ÚNICO, los 3 overlays; sin listar servicios,
    el profile inerte ya excluye `database`/`rabbitmq`):
@@ -196,6 +199,19 @@ stack de producción.
      bin/console doctrine:fixtures:load --group=staging --no-interaction
    ```
 7. **Health:** `docker exec <app>-staging-backend-1 curl -s http://localhost/health`
+8. **Dominio propio de staging (vhost separado, OBLIGATORIO si prod y staging
+   conviven):** el frontend de staging registra el alias `<app>-staging-frontend`
+   en `proxy_net` (derivado del project name). Agregar en `~/infra/caddy/Caddyfile`
+   un vhost propio para staging — **nunca** compartir el de prod:
+   ```
+   staging.<dominio> {
+       reverse_proxy <app>-staging-frontend:80
+   }
+   ```
+   `~/infra` se sincroniza por **scp** (no git pull): copiar el `Caddyfile` al VPS
+   y `docker exec infra-reverse-proxy-1 caddy reload`. nip.io resuelve el wildcard
+   solo; Caddy saca TLS automático. Sin este vhost separado, el dominio de prod
+   podría rutear a staging (eran el mismo alias antes del fix del alias derivado).
 
 Para reiniciar con datos frescos: `SKIP_PULL=1 ./scripts/deploy-staging.sh`.
 Para bajar staging: `docker compose -p <app>-staging ... down -v`.
