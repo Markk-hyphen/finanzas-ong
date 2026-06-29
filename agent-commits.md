@@ -1,7 +1,7 @@
 # Registro de commits del agente
 
 ## [STAGING — fix] fix(staging): alias de frontend derivado del project name (anti-colisión proxy_net)
-**Hash:** `fb51648ae1671b179065451f4bc2c70701257750`
+**Hash:** `3bb2b12`
 **Rama:** `main`
 **Fecha:** 2026-06-29
 
