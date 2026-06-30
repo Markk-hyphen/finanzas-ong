@@ -1,5 +1,25 @@
 # Registro de commits del agente
 
+## [STAGING — fix] fix(staging): imagen propia de frontend (app-frontend-staging) + build en deploy
+**Hash:** `ac2e02a`
+**Rama:** `main`
+**Fecha:** 2026-06-30
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `docker-compose.staging.yml` | modificado | Nuevo bloque `frontend` con `image: app-frontend-staging:1.0`. Hereda el build de prod.yml (`context: frontend`, `target: production`); solo cambia el tag para no compartir imagen con prod |
+| `scripts/deploy-staging.sh` | modificado | `build backend` → `build backend frontend` (el frontend nunca se rebuildeaba en staging). Se elimina del header el prerequisito #3 obsoleto (placeholder `CHANGE-THIS-ALIAS-frontend`, ya inexistente desde el alias derivado de `3bb2b12`) |
+
+### Justificación
+**El bug (login roto en staging):** el frontend de staging no tenía imagen propia → heredaba `app-frontend-prod:1.0` de `prod.yml`, y `deploy-staging.sh` solo corría `build backend`. Resultado: el bundle JS de staging era el viejo (de antes del login-por-username, `66f7473`/`c52e11b`) y posteaba la clave anterior (`email`/`username`) en vez de `login`. El backend, con `username_path: login` en `security.yaml`, devolvía `400 BadRequestHttpException "The key 'login' must be provided"`; el frontend, al parsear la página de excepción HTML de Symfony como JSON, explotaba con `"Unexpected token '<'"`. El JWT (sospechoso inicial) estaba intacto — las claves se generaron bien en el primer boot y el entrypoint las salteó correctamente por existir ya.
+
+**Por qué imagen propia y no solo `build frontend`:** dar a staging su tag `app-frontend-staging:1.0` lo aísla a nivel imagen igual que el backend (`app-backend-staging:1.0`). Sin tag propio, rebuildear el front en staging pisaría la imagen `app-frontend-prod:1.0` que sirve producción — footgun si staging está en un commit adelantado a prod. El frontend era la **única** pieza de staging no aislada de prod; este fix la alinea con el resto. Es el **tercer caso del mismo patrón** de aislar staging por recurso scopeado al entorno: alias de red derivado del project name (`3bb2b12`) → imagen de backend (`app-backend-staging`) → ahora imagen de frontend.
+
+**Fuera de alcance:** no se tocó el frontend de prod ni su tag (prod sigue en `app-frontend-prod:1.0`). El target de build del frontend de staging sigue siendo `production` a propósito — el front no necesita dev-deps (a diferencia del backend, que en staging suma Foundry/fixtures); solo cambia el nombre de la imagen.
+
+---
+
 ## [STAGING — fix] fix(staging): alias de frontend derivado del project name (anti-colisión proxy_net)
 **Hash:** `3bb2b12`
 **Rama:** `main`
