@@ -8,8 +8,8 @@
 #   1. Provisionar la DB de staging en el Postgres compartido:
 #        ~/infra/scripts/provision-postgres.sh <app>_staging_db <app>_staging_user
 #   2. Completar .env.staging (copiar de .env.staging.example y setear DATABASE_URL).
-#   3. Reemplazar CHANGE-THIS-ALIAS-frontend en docker-compose.shared-infra.yml
-#      (ya debería estar hecho para prod; staging comparte el alias de red de prod).
+#      (El alias del frontend en proxy_net se deriva del project name -p <app>-staging;
+#       no hay nada que reemplazar a mano.)
 #
 # Uso:
 #   ./scripts/deploy-staging.sh            # app_name = nombre del directorio actual
@@ -36,8 +36,8 @@ fi
 echo ">> down"
 COMPOSE_PROFILES=cron "${COMPOSE[@]}" down --remove-orphans
 
-echo ">> build (target: frankenphp_staging)"
-"${COMPOSE[@]}" build backend
+echo ">> build (backend: frankenphp_staging, frontend: production)"
+"${COMPOSE[@]}" build backend frontend
 
 echo ">> up -d"
 "${COMPOSE[@]}" up -d

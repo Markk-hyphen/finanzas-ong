@@ -49,3 +49,13 @@ services:
       - .env
       - .env.backend
       - .env.staging
+
+  # El frontend de staging usa su PROPIA imagen (no app-frontend-prod:1.0), igual
+  # que el backend usa app-backend-staging. Así staging queda 100% aislado de prod
+  # a nivel imagen: rebuildear el front en staging no pisa la imagen que sirve
+  # producción. Mismo target `production` (el front no necesita nada distinto en
+  # staging), solo cambia el tag — el build se hereda de prod.yml. Sin esto,
+  # staging reusaba la imagen de prod y un cambio de frontend nunca llegaba a
+  # staging (deploy-staging.sh ahora buildea backend Y frontend).
+  frontend:
+    image: app-frontend-staging:1.0
