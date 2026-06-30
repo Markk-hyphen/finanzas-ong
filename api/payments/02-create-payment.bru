@@ -1,0 +1,27 @@
+meta {
+  name: Create Payment
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/api/projects/{{project_id}}/payments
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "amount": "100.00"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("batch_id", res.body.batchId);
+  }
+}

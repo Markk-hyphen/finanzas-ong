@@ -1,0 +1,21 @@
+meta {
+  name: Cancel Movement
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/movements/{{movement_id}}/cancel
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "reason": "Error en el monto registrado"
+  }
+}

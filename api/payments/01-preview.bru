@@ -1,0 +1,21 @@
+meta {
+  name: Preview Payment
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/projects/{{project_id}}/payments/preview
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "amount": "100.00"
+  }
+}

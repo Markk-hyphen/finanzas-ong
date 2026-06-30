@@ -1,0 +1,14 @@
+meta {
+  name: Project Dashboard
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/projects/{{project_id}}/dashboard
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

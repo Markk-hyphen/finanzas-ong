@@ -1,0 +1,14 @@
+meta {
+  name: Search Materials
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/materials?q=tierra
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
