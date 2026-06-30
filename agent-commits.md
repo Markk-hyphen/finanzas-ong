@@ -1,5 +1,34 @@
 # Registro de commits del agente
 
+## [DX] feat(api): Bruno collection para testing de todos los endpoints
+**Hash:** `27ff98c`
+**Rama:** `main`
+**Fecha:** 2026-06-30
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| api/bruno.json | nuevo | Raíz de la collection Bruno |
+| api/.env.example | nuevo | Template de credenciales secretas para prod |
+| api/environments/staging.bru | nuevo | Environment con usuario seed real (ezequiel.torrontegui/asdasd) y project_id: 1 |
+| api/environments/prod.bru | nuevo | Environment prod; login/password en api/.env gitignoreado |
+| api/auth/01-login.bru | nuevo | POST /api/login + script post-response que captura el token automáticamente |
+| api/auth/02-me.bru | nuevo | GET /api/me |
+| api/health/01-health.bru | nuevo | GET /health |
+| api/projects/01-list.bru | nuevo | GET /api/projects |
+| api/projects/02-dashboard.bru | nuevo | GET /api/projects/{{project_id}}/dashboard |
+| api/expenses/01-create-expense.bru | nuevo | POST /api/projects/{{project_id}}/expenses |
+| api/payments/01-preview.bru | nuevo | POST /api/projects/{{project_id}}/payments/preview |
+| api/payments/02-create-payment.bru | nuevo | POST /api/projects/{{project_id}}/payments + captura batch_id |
+| api/payments/03-confirm.bru | nuevo | POST /api/payments/{{batch_id}}/confirm |
+| api/admin/01-cancel-movement.bru | nuevo | POST /api/movements/{{movement_id}}/cancel (ROLE_ADMIN) |
+| api/materials/01-search.bru | nuevo | GET /api/materials?q=tierra |
+
+### Justificación
+El caso de uso que disparó esto ("confirmar todos los pagos pendientes del proyecto X del usuario Y") requería login → dashboard → copiar batch_ids → confirmar cada uno a mano. Con la collection: Login captura el token vía script post-response, Create Payment captura el batchId automáticamente, Confirm lo consume — 3 clicks sin copy-paste.
+
+Se evaluó si la collection debía vivir en Oliva (framework base). Decisión: NO como archivos físicos (Bruno es app externa, los requests son 100% dominio de finanzas-ong, n=1 es prematuro para extraer convención de archivos). SÍ como convención documentada en Oliva: una línea en README + un paso en el runbook de deploy simétrico al `fixtures:load` de seeding. Se ejecuta en sesión separada sobre `~/app`.
+
 ## [STAGING — fix] fix(staging): imagen propia de frontend (app-frontend-staging) + build en deploy
 **Hash:** `ac2e02a`
 **Rama:** `main`
