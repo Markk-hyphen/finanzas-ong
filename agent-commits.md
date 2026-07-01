@@ -1,5 +1,48 @@
 # Registro de commits del agente
 
+## [SYNC] Merge oliva-upstream/main — aislamiento de entornos + APP_ENV corto + down-staging + CI
+**Hash:** `1932745`
+**Rama:** `main`
+**Fecha:** 2026-06-30
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| docker-compose.prod.yml | modificado | `APP_ENV=production` → `prod` (backend + scheduler) |
+| docker-compose.override.yml | modificado | `APP_ENV=development` → `dev` (3 servicios) |
+| docker-compose.staging.yml | modificado | comentarios actualizados a `prod`; código de override sin cambios |
+| docker-compose.shared-infra.yml | modificado | resuelto a favor de los comentarios detallados propios (alias derivado, sin cambio de código) |
+| .env.example | modificado | `APP_ENV=development` → `dev` |
+| backend/Dockerfile | modificado | stage `frankenphp_staging`: `ENV APP_ENV=staging` + `rm .env.local.php` heredado del stage prod |
+| backend/config/packages/zenstruck_foundry.yaml | modificado | resolución trivial de whitespace (ya tenía `when@staging`) |
+| scripts/deploy-staging.sh | modificado | `up -d --build` (build-everything) en vez de enumerar servicios |
+| scripts/down-staging.sh | nuevo | análogo a `down.sh` para el stack de staging (4 overlays, `-p <app>-staging`, sin `-v`) |
+| .github/workflows/ci.yml | modificado | guard `prod-config` (falla si `APP_ENV != prod`), smoke post-merge, caché de capas GHA |
+| CLAUDE.md | modificado | resuelto a favor del texto propio; numeración de ambos runbooks corregida (shared-infra 1-12, staging 1-7) |
+| README.md | modificado | se mantiene la tabla de stack en español de la app (se descartó la tabla en inglés del framework) |
+| agent-commits.md | conflicto add/add | resuelto `--ours`: el log es de la app, no se importan hashes del repo de Oliva |
+
+### Justificación
+El backport a Oliva (framework, `~/app`) de los fixes que finanzas-ong había aplicado
+primero (alias derivado `3bb2b12`, frontend staging `ac2e02a`, override APP_ENV `9523ca8`)
+ya estaba en `oliva-upstream/main`. Este merge lo trae de vuelta más lo genuinamente nuevo.
+
+**Por qué un merge y no cherry-pick:** mantener la línea limpia con `oliva-upstream` para
+futuros pulls. La mayoría de los 8 conflictos eran duplicados (misma idea, otra redacción):
+se resolvieron conservando los comentarios más informativos y tomando la única mejora real
+de código (`deploy-staging.sh` con `up -d --build`, robusto ante nuevos servicios buildeables).
+
+**El cambio de riesgo (APP_ENV corto):** en prod, Symfony matchea `when@prod` por string
+exacto. Con `APP_ENV=production` (largo) ese bloque NUNCA aplicaba → prod corría sin proxies
+precompilados ni pools de cache de Doctrine. El fix pasa a `prod` (corto) y los reactiva.
+Riesgo real bajo (los pools usan filesystem, no Redis; los proxies se hornean en build), pero
+es el estreno de ese path en prod — por eso el deploy es en 2 olas (staging → prod vigilado).
+Staging usa `APP_ENV=staging` (`when@staging: *dev`), así que NO ejercita `when@prod`: ese
+cambio solo se valida en prod. Rollback trivial: `git revert -m 1 1932745`.
+
+Validado antes del push con `docker compose config` para `-p ong` (APP_ENV=prod, alias
+`ong-frontend`) y `-p ong-staging` (APP_ENV=staging, alias `ong-staging-frontend`).
+
 ## [DX] feat(api): Bruno collection para testing de todos los endpoints
 **Hash:** `27ff98c`
 **Rama:** `main`
