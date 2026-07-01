@@ -36,11 +36,12 @@ fi
 echo ">> down"
 COMPOSE_PROFILES=cron "${COMPOSE[@]}" down --remove-orphans
 
-echo ">> build (backend: frankenphp_staging, frontend: production)"
-"${COMPOSE[@]}" build backend frontend
-
-echo ">> up -d"
-"${COMPOSE[@]}" up -d
+# build-everything (no enumerar servicios): enumerar es lo frágil — es lo que
+# en finanzas-ong dejó el frontend STALE (build solo listaba backend) y se
+# pudre de nuevo en cuanto un fork agregue un servicio buildeable más. Alinea
+# además con deploy.sh (prod), que ya usa up -d --build.
+echo ">> up -d --build (target backend/scheduler: frankenphp_staging)"
+"${COMPOSE[@]}" up -d --build
 
 echo ">> migraciones"
 docker exec "${STAGING_PROJECT}-backend-1" bin/console doctrine:migrations:migrate --no-interaction

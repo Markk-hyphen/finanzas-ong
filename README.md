@@ -25,7 +25,6 @@ Ver `MANIFIESTO.md` para la especificación técnica completa (modelo de datos, 
 
 ## Stack
 
-
 | Capa | Tecnología |
 |---|---|
 | Backend | Symfony 7.4 (PHP 8.3+) · FrankenPHP · Caddy · JWT Auth |

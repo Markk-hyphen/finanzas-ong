@@ -32,7 +32,7 @@ services:
       - ./backend/migrations:/app/migrations
       - ./backend/config:/app/config
     environment:
-      APP_ENV: development
+      APP_ENV: dev
     healthcheck:
       test: ["CMD-SHELL", "kill -0 1 2>/dev/null"]
       interval: 30s
@@ -63,7 +63,7 @@ services:
       - ./backend/config:/app/config
       - ./backend/scheduler/crontab:/etc/supercronic/crontab:ro
     environment:
-      APP_ENV: development
+      APP_ENV: dev
     healthcheck:
       test: ["CMD-SHELL", "kill -0 1 2>/dev/null"]
       interval: 30s
@@ -90,7 +90,7 @@ services:
       - ./backend/config:/app/config
     environment:
       XDEBUG_MODE: "${XDEBUG_MODE:-off}"
-      APP_ENV: development
+      APP_ENV: dev
     extra_hosts:
       - host.docker.internal:host-gateway
     tty: true

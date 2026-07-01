@@ -26,10 +26,11 @@ services:
     image: app-backend-staging:1.0
     build:
       target: frankenphp_staging
-    # `environment:` tiene MAYOR precedencia que `env_file:` y que el ENV de la
-    # imagen. prod.yml setea `APP_ENV=production` acá, que pisaba .env.staging y
-    # rompía el seeding (production no está en bundles.php → Foundry/Fixtures no
-    # cargan). Override explícito a `staging` (sí está en bundles.php).
+    # prod.yml hardcodea environment: APP_ENV=prod en backend/scheduler.
+    # Precedencia de Compose: environment: > env_file: > ENV de la imagen — sin
+    # este override, ese environment pisaría .env.staging y quedaría en prod
+    # pese al env_file. Síntoma real: fixtures:load fallaba ("command not
+    # defined") porque prod no está en bundles.php.
     environment:
       - APP_ENV=staging
     # !override reemplaza (no concatena) la lista del base: evita duplicados.
@@ -56,6 +57,6 @@ services:
   # producción. Mismo target `production` (el front no necesita nada distinto en
   # staging), solo cambia el tag — el build se hereda de prod.yml. Sin esto,
   # staging reusaba la imagen de prod y un cambio de frontend nunca llegaba a
-  # staging (deploy-staging.sh ahora buildea backend Y frontend).
+  # staging (deploy-staging.sh ahora buildea todo con up -d --build).
   frontend:
     image: app-frontend-staging:1.0

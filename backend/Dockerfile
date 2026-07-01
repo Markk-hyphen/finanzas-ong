@@ -135,6 +135,9 @@ FROM frankenphp_prod AS frankenphp_staging
 
 ENV APP_ENV=staging
 
+# frankenphp_prod horneó .env.local.php con APP_ENV=prod compilado (composer
+# dump-env prod) — heredarlo pisaría el ENV de arriba. Hay que borrarlo antes
+# del install para que el entorno de staging se resuelva en runtime.
 RUN set -eux; \
 	rm -f .env.local.php; \
 	composer install --no-cache --prefer-dist --no-autoloader --no-scripts --no-progress; \
