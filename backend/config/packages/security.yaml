@@ -26,6 +26,9 @@ security:
 
     access_control:
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
+        # QA-only login-as: public so testing needs no prior login. The controller
+        # 404s in prod (kernel.environment === 'prod'), so this is inert there.
+        - { path: ^/api/qa/login-as, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:

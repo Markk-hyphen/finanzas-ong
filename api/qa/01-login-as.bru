@@ -6,11 +6,7 @@ meta {
 
 post {
   url: {{base_url}}/api/qa/login-as/{{member_id}}
-  auth: bearer
-}
-
-auth:bearer {
-  token: {{token}}
+  auth: none
 }
 
 script:post-response {
