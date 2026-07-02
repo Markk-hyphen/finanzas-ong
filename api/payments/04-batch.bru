@@ -1,11 +1,12 @@
 meta {
   name: Get Batch
   type: http
-  seq: 4
+  seq: 3
 }
 
 get {
   url: {{base_url}}/api/payments/{{batch_id}}
+  body: none
   auth: bearer
 }
 
