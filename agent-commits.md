@@ -1,5 +1,27 @@
 # Registro de commits del agente
 
+## [QA] feat: 5 endpoints QA para testeo manual con Bruno
+**Hash:** `6758a3d`
+**Rama:** `main`
+**Fecha:** 2026-07-01
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `backend/src/Controller/QaController.php` | nuevo | `POST /api/qa/login-as/{memberId}` — genera un JWT del socio pedido sin password, vía `JWTTokenManagerInterface::create()` |
+| `backend/src/Controller/ProjectController.php` | modificado | `GET /api/projects/{id}/members` (socios + % del proyecto) y `GET /api/projects/{id}/overview` (balances/movements/pendingPayments de TODOS los socios, no solo el logueado) |
+| `backend/src/Controller/MemberController.php` | modificado | `GET /api/members` — lista global de socios |
+| `backend/src/Controller/PaymentController.php` | modificado | `GET /api/payments/{batchId}` — inspecciona los movimientos de un batch |
+| `api/qa/01-login-as.bru`, `api/members/01-list.bru`, `api/projects/03-members.bru`, `api/projects/04-overview.bru`, `api/payments/04-batch.bru` | nuevo | Requests Bruno para los 5 endpoints, mismo patrón que la collection existente |
+| `api/environments/{staging,prod}.bru` | modificado | agrega var `member_id` |
+
+### Justificación
+Objetivo: eliminar la fricción de testear a mano flujos multi-usuario (ej. confirmar un pago exige loguearse como el socio receptor). Decisión consciente y explícita del usuario: estos endpoints **no llevan el check de membresía** (`403 Access denied`) que sí tienen `dashboard`/`expense`/`payment` — son herramientas de testeo, no vistas de negocio, y esa capa de auth extra no aporta nada al objetivo.
+
+El diseño no obvio es el guard de `login-as`: compara `kernel.environment === 'prod'` (no `'production'`) para tirar 404 en producción. Este proyecto usa nombres de entorno CORTOS desde el merge `1932745` (`prod`/`dev`/`staging`, ver `agent-commits.md` [SYNC] y `docs` de [[project-reference]]) — comparar contra el nombre largo viejo habría dejado el endpoint abierto en prod de forma silenciosa. Se verificó el guard de punta a punta: se compiló la imagen `app-backend-prod:1.0` y se corrió un container aislado con `APP_ENV=prod` contra la misma DB de dev — `login-as` devolvió 404 real, mientras `/api/members` (sin guard) siguió respondiendo 200, confirmando que el bloqueo es específico y no colateral.
+
+Se decidió que `login-as` siga exigiendo un token válido previo (no se tocó `security.yaml` ni `access_control`) en vez de hacer la ruta pública: evita abrir una superficie nueva en el firewall y el riesgo de ordenar mal las reglas de `access_control`, y de todos modos cumple el objetivo (un solo login real con password, después impersonar a cualquiera).
+
 ## [SYNC] Merge oliva-upstream/main — aislamiento de entornos + APP_ENV corto + down-staging + CI
 **Hash:** `1932745`
 **Rama:** `main`
