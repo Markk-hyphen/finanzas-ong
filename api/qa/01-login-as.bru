@@ -1,0 +1,20 @@
+meta {
+  name: Login As
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/api/qa/login-as/{{member_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+script:post-response {
+  if (res.status === 200) {
+    bru.setVar("token", res.body.token);
+  }
+}

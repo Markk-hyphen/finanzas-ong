@@ -46,6 +46,130 @@ class ProjectController extends AbstractController
         ], $memberships));
     }
 
+    #[Route('/projects/{id}/members', methods: ['GET'])]
+    public function members(int $id): JsonResponse
+    {
+        $project = $this->em->find(Project::class, $id);
+        if (!$project) {
+            return new JsonResponse(['error' => 'Project not found.'], 404);
+        }
+
+        $memberships = $this->em->createQuery(
+            'SELECT mp, m FROM App\Entity\MemberProject mp JOIN mp.member m WHERE mp.project = :project ORDER BY m.name ASC'
+        )
+        ->setParameter('project', $project)
+        ->getResult();
+
+        return new JsonResponse(array_map(fn(MemberProject $mp) => [
+            'id'         => $mp->getMember()->getId(),
+            'name'       => $mp->getMember()->getName(),
+            'username'   => $mp->getMember()->getUsername(),
+            'email'      => $mp->getMember()->getEmail(),
+            'percentage' => $mp->getPercentage(),
+        ], $memberships));
+    }
+
+    #[Route('/projects/{id}/overview', methods: ['GET'])]
+    public function overview(int $id): JsonResponse
+    {
+        $project = $this->em->find(Project::class, $id);
+        if (!$project) {
+            return new JsonResponse(['error' => 'Project not found.'], 404);
+        }
+
+        $movements = $this->movementLoader->forProject($project);
+        $shares    = $this->shareLoader->forProject($project);
+        $balances  = $this->calculator->calculate($movements, $shares);
+        $totalCost = $this->calculator->computeTotalCost($movements);
+
+        $allMemberships = $this->em->createQuery(
+            'SELECT mp, m FROM App\Entity\MemberProject mp JOIN mp.member m WHERE mp.project = :project'
+        )
+        ->setParameter('project', $project)
+        ->getResult();
+
+        $memberNames = [];
+        foreach ($allMemberships as $mp) {
+            $memberNames[(int) $mp->getMember()->getId()] = $mp->getMember()->getName();
+        }
+
+        $balancesData = [];
+        foreach ($balances as $memberId => $balance) {
+            $balancesData[] = [
+                'memberId' => $memberId,
+                'name'     => $memberNames[$memberId] ?? null,
+                'balance'  => $balance,
+            ];
+        }
+
+        $cancelledIds = [];
+        foreach ($movements as $m) {
+            if ($m->type === 'cancellation' && $m->cancelsMovementId !== null) {
+                $cancelledIds[$m->cancelsMovementId] = true;
+            }
+        }
+
+        $allMovements = $this->em->createQuery(
+            'SELECT m FROM App\Entity\Movement m
+             WHERE m.project = :project
+             AND m.type != :cancel
+             ORDER BY m.createdAt DESC'
+        )
+        ->setParameter('project', $project)
+        ->setParameter('cancel', Movement::TYPE_CANCELLATION)
+        ->getResult();
+
+        $movementsData = [];
+        foreach ($allMovements as $m) {
+            if (isset($cancelledIds[(int) $m->getId()])) {
+                continue;
+            }
+            $movementsData[] = [
+                'id'           => $m->getId(),
+                'type'         => $m->getType(),
+                'status'       => $m->getStatus(),
+                'amount'       => $m->getAmount(),
+                'fromMemberId' => $m->getFromMember() !== null ? (int) $m->getFromMember()->getId() : null,
+                'toMemberId'   => $m->getToMember() !== null ? (int) $m->getToMember()->getId() : null,
+                'batchId'      => $m->getBatchId(),
+                'material'     => $m->getMaterial()?->getName(),
+                'quantity'     => $m->getQuantity(),
+                'createdAt'    => $m->getCreatedAt()->format(\DateTimeInterface::RFC3339),
+            ];
+        }
+
+        $pending = $this->em->createQuery(
+            'SELECT m FROM App\Entity\Movement m
+             WHERE m.project = :project
+             AND m.type = :payment
+             AND m.status = :pending
+             ORDER BY m.createdAt DESC'
+        )
+        ->setParameter('project', $project)
+        ->setParameter('payment', Movement::TYPE_PAYMENT)
+        ->setParameter('pending', Movement::STATUS_PENDING)
+        ->getResult();
+
+        $pendingData = array_map(fn(Movement $m) => [
+            'id'             => $m->getId(),
+            'batchId'        => $m->getBatchId(),
+            'fromMemberId'   => $m->getFromMember() !== null ? (int) $m->getFromMember()->getId() : null,
+            'fromMemberName' => $m->getFromMember()?->getName(),
+            'toMemberId'     => $m->getToMember() !== null ? (int) $m->getToMember()->getId() : null,
+            'toMemberName'   => $m->getToMember()?->getName(),
+            'amount'         => $m->getAmount(),
+            'createdAt'      => $m->getCreatedAt()->format(\DateTimeInterface::RFC3339),
+        ], $pending);
+
+        return new JsonResponse([
+            'project'        => ['id' => $project->getId(), 'name' => $project->getName()],
+            'totalCost'      => $totalCost,
+            'balances'       => $balancesData,
+            'movements'      => $movementsData,
+            'pendingPayments' => $pendingData,
+        ]);
+    }
+
     #[Route('/projects/{id}/dashboard', methods: ['GET'])]
     public function dashboard(int $id): JsonResponse
     {

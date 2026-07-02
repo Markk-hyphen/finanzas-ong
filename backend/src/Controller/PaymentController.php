@@ -83,6 +83,30 @@ class PaymentController extends AbstractController
         ], 201);
     }
 
+    #[Route('/payments/{batchId}', methods: ['GET'])]
+    public function batch(string $batchId): JsonResponse
+    {
+        $movements = $this->em->createQuery(
+            'SELECT m FROM App\Entity\Movement m WHERE m.batchId = :batchId ORDER BY m.createdAt ASC'
+        )
+        ->setParameter('batchId', $batchId)
+        ->getResult();
+
+        if (empty($movements)) {
+            return new JsonResponse(['error' => 'Batch not found.'], 404);
+        }
+
+        return new JsonResponse(array_map(fn(Movement $m) => [
+            'id'           => $m->getId(),
+            'type'         => $m->getType(),
+            'status'       => $m->getStatus(),
+            'fromMemberId' => $m->getFromMember() !== null ? (int) $m->getFromMember()->getId() : null,
+            'toMemberId'   => $m->getToMember() !== null ? (int) $m->getToMember()->getId() : null,
+            'amount'       => $m->getAmount(),
+            'createdAt'    => $m->getCreatedAt()->format(\DateTimeInterface::RFC3339),
+        ], $movements));
+    }
+
     #[Route('/payments/{batchId}/confirm', methods: ['POST'])]
     public function confirm(string $batchId): JsonResponse
     {

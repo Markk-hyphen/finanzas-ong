@@ -1,0 +1,14 @@
+meta {
+  name: Project Overview
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/api/projects/{{project_id}}/overview
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
