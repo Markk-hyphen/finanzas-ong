@@ -11,8 +11,9 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
-// Manual testing helper: lets an already-authenticated member get a JWT for
-// any other member without knowing their password. Disabled in prod.
+// Manual testing helpers, fully public (no auth required, see security.yaml)
+// and disabled in prod: login-as mints a JWT for any member without a
+// password, members lists ids so a caller with no token yet can pick one.
 #[Route('/api/qa')]
 class QaController extends AbstractController
 {
@@ -34,5 +35,23 @@ class QaController extends AbstractController
         }
 
         return new JsonResponse(['token' => $this->jwtManager->create($member)]);
+    }
+
+    #[Route('/members', methods: ['GET'])]
+    public function members(): JsonResponse
+    {
+        if ($this->getParameter('kernel.environment') === 'prod') {
+            throw $this->createNotFoundException();
+        }
+
+        $members = $this->em->createQuery(
+            'SELECT m FROM App\Entity\Member m ORDER BY m.name ASC'
+        )->getResult();
+
+        return new JsonResponse(array_map(fn(Member $m) => [
+            'id'       => $m->getId(),
+            'name'     => $m->getName(),
+            'username' => $m->getUsername(),
+        ], $members));
     }
 }
