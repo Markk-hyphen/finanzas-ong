@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\Application\MovementLoader;
 use App\Application\ShareLoader;
 use App\Domain\Service\BalanceCalculator;
+use App\Domain\Service\ProjectGuard;
 use App\Entity\Member;
 use App\Entity\MemberProject;
 use App\Entity\Movement;
@@ -14,7 +15,9 @@ use App\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/api')]
 class ProjectController extends AbstractController
@@ -24,7 +27,48 @@ class ProjectController extends AbstractController
         private readonly MovementLoader $movementLoader,
         private readonly ShareLoader $shareLoader,
         private readonly BalanceCalculator $calculator,
+        private readonly ProjectGuard $projectGuard,
     ) {}
+
+    #[Route('/projects', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function create(Request $request): JsonResponse
+    {
+        $body = json_decode($request->getContent(), true) ?? [];
+        $name = trim((string) ($body['name'] ?? ''));
+
+        if ($name === '') {
+            return new JsonResponse(['error' => 'name must not be empty.'], 400);
+        }
+
+        $project = new Project($name);
+        $this->em->persist($project);
+        $this->em->flush();
+
+        return new JsonResponse(['id' => $project->getId(), 'name' => $project->getName(), 'active' => false], 201);
+    }
+
+    #[Route('/projects/{id}', methods: ['PATCH'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function rename(int $id, Request $request): JsonResponse
+    {
+        $project = $this->em->find(Project::class, $id);
+        if (!$project) {
+            return new JsonResponse(['error' => 'Project not found.'], 404);
+        }
+
+        $body = json_decode($request->getContent(), true) ?? [];
+        $name = trim((string) ($body['name'] ?? ''));
+
+        if ($name === '') {
+            return new JsonResponse(['error' => 'name must not be empty.'], 400);
+        }
+
+        $project->setName($name);
+        $this->em->flush();
+
+        return new JsonResponse(['id' => $project->getId(), 'name' => $project->getName()]);
+    }
 
     #[Route('/projects', methods: ['GET'])]
     public function list(): JsonResponse
@@ -67,6 +111,105 @@ class ProjectController extends AbstractController
             'email'      => $mp->getMember()->getEmail(),
             'percentage' => $mp->getPercentage(),
         ], $memberships));
+    }
+
+    #[Route('/projects/{id}/members', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function addMember(int $id, Request $request): JsonResponse
+    {
+        $project = $this->em->find(Project::class, $id);
+        if (!$project) {
+            return new JsonResponse(['error' => 'Project not found.'], 404);
+        }
+
+        $body     = json_decode($request->getContent(), true) ?? [];
+        $memberId = (int) ($body['memberId'] ?? 0);
+        $member   = $memberId > 0 ? $this->em->find(Member::class, $memberId) : null;
+        if (!$member) {
+            return new JsonResponse(['error' => 'Member not found.'], 404);
+        }
+
+        if ($this->projectGuard->hasMovements($project)) {
+            return new JsonResponse(
+                ['error' => 'No se puede modificar la membresía de un proyecto que ya tiene movimientos.'],
+                409
+            );
+        }
+
+        $existing = $this->em->createQuery(
+            'SELECT mp FROM App\Entity\MemberProject mp WHERE mp.member = :member AND mp.project = :project'
+        )
+        ->setParameter('member', $member)
+        ->setParameter('project', $project)
+        ->getOneOrNullResult();
+
+        if ($existing !== null) {
+            return new JsonResponse(['error' => 'This member is already part of the project.'], 409);
+        }
+
+        $percentage = trim((string) ($body['percentage'] ?? ''));
+        if ($percentage === '' || !is_numeric($percentage)) {
+            return new JsonResponse(['error' => 'percentage must be a number.'], 400);
+        }
+
+        $percentage = bcadd($percentage, '0', 2);
+        if (bccomp($percentage, '0', 2) <= 0 || bccomp($percentage, '100.00', 2) > 0) {
+            return new JsonResponse(['error' => 'percentage must be greater than 0 and at most 100.'], 422);
+        }
+
+        $newSum = bcadd($this->projectGuard->sumPercentage($project), $percentage, 2);
+        if (bccomp($newSum, '100.00', 2) > 0) {
+            return new JsonResponse(['error' => 'La suma de porcentajes del proyecto no puede superar 100%.'], 422);
+        }
+
+        $membership = new MemberProject($member, $project, $percentage);
+        $this->em->persist($membership);
+        $this->em->flush();
+
+        return new JsonResponse([
+            'projectId'     => $project->getId(),
+            'memberId'      => $member->getId(),
+            'percentage'    => $percentage,
+            'projectActive' => $this->projectGuard->isActive($project),
+        ], 201);
+    }
+
+    #[Route('/projects/{id}/members/{memberId}', methods: ['DELETE'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function removeMember(int $id, int $memberId): JsonResponse
+    {
+        $project = $this->em->find(Project::class, $id);
+        $member  = $this->em->find(Member::class, $memberId);
+        if (!$project || !$member) {
+            return new JsonResponse(['error' => 'Project or member not found.'], 404);
+        }
+
+        $membership = $this->em->createQuery(
+            'SELECT mp FROM App\Entity\MemberProject mp WHERE mp.member = :member AND mp.project = :project'
+        )
+        ->setParameter('member', $member)
+        ->setParameter('project', $project)
+        ->getOneOrNullResult();
+
+        if (!$membership) {
+            return new JsonResponse(['error' => 'Membership not found.'], 404);
+        }
+
+        if ($this->projectGuard->hasMovements($project)) {
+            return new JsonResponse(
+                ['error' => 'No se puede modificar la membresía de un proyecto que ya tiene movimientos.'],
+                409
+            );
+        }
+
+        $this->em->remove($membership);
+        $this->em->flush();
+
+        return new JsonResponse([
+            'projectId'     => $project->getId(),
+            'memberId'      => $member->getId(),
+            'projectActive' => $this->projectGuard->isActive($project),
+        ]);
     }
 
     #[Route('/projects/{id}/overview', methods: ['GET'])]
