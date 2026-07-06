@@ -5,8 +5,9 @@ Collection de [Bruno](https://www.usebruno.com/) para testear la API de finanzas
 ## Setup
 
 1. Abrir Bruno → "Open Collection" → seleccionar la carpeta `api/`.
-2. Elegir el environment arriba a la derecha: **staging** o **prod** (`api/environments/`).
-3. En `staging.bru` el login/password ya vienen cargados (`ezequiel.torrontegui` / `asdasd`). En `prod.bru` son secrets vacíos — completarlos en `api/.env` (gitignoreado, ver `api/.env.example`).
+2. Elegir el environment arriba a la derecha: **local**, **staging** o **prod** (`api/environments/`).
+3. En `local.bru` y `staging.bru` el login/password ya vienen cargados (`marcosfsoler` / `marcos32`, el admin de fixtures). En `prod.bru` son secrets vacíos — completarlos en `api/.env` (gitignoreado, ver `api/.env.example`).
+4. `local.bru` apunta a `http://localhost` (backend expuesto por `docker-compose.override.yml`) — usar mientras corrés `docker compose up` en tu máquina, sin tocar staging/prod.
 
 ## Flujo básico
 
