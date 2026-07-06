@@ -1,5 +1,26 @@
 # Registro de commits del agente
 
+## [API-COMPLETION] feat: environment local para Bruno + fix de parseo en prod.bru
+**Hash:** `f4df2dd`
+**Rama:** `feat/api-completion`
+**Fecha:** 2026-07-06
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `api/environments/local.bru` | nuevo | Environment `http://localhost` con mismas credenciales de admin que staging (`marcosfsoler`/`marcos32`) |
+| `api/environments/prod.bru` | modificado | Agrega comas faltantes entre los 3 elementos de `vars:secret [login, password, token]` |
+| `api/README.md` | modificado | Documenta el environment local y corrige la mención desactualizada de credenciales de staging |
+
+### Justificación
+Marcos reportó que Bruno se colgaba apenas la abría, sospechando que era por el environment local que yo acababa de agregar. Investigué: los `.bru` nuevos de la sesión (colección de endpoints de escritura) parseaban bien, el proceso no crasheaba (sin dumps en Crashpad) sino que quedaba inerte (~1% CPU, sin escribir estado nuevo) — un hang, no un crash. Relancé Bruno desde terminal con `--enable-logging=stderr` para ver el stdout real, y ahí apareció: `Error processing environment file` al parsear `prod.bru`, en la línea del bloque `vars:secret`.
+
+Causa raíz: extraje el `app.asar` de Bruno y leí la gramática real (`@usebruno/lang/v2/src/envToJson.js`): `valuelist = arrayvalue ("," arrayvalue)*` — el parser exige **coma** entre elementos de un array cuando hay más de uno. `prod.bru` tenía `login`/`password`/`token` uno por línea sin comas desde el commit `27ff98c` (30/06). `staging.bru` nunca disparó el bug porque su `vars:secret` tiene un solo elemento (`token`) — no necesita separador. El bug estaba latente hasta que (a) Bruno se autoactualizó a 3.5.1 el 04/07 (versión con este parser más estricto) y (b) hoy toqué `prod.bru` para agregarle `material_id`, dispersando el re-parseo que lo expuso por primera vez.
+
+Se descartó la hipótesis inicial (que el problema fueran mis archivos `.bru` nuevos) con evidencia: ninguno de los archivos que yo creé tiene `vars:secret` con más de un elemento, y todos parsearon sin error en el mismo log.
+
+**Estado de verificación:** confirmé desde la terminal que el error de parseo desaparece con el fix y que el proceso pasa de CPU inerte (~1%, sin progreso) a actividad normal de renderizado (pico y luego baja a idle real). **Marcos todavía no confirmó en su sesión real de la app** — planea reiniciar la PC primero por si hay caché de por medio. Pendiente confirmar en la próxima sesión si el reinicio + este fix resolvieron el cuelgue para él.
+
 ## [API-COMPLETION] feat: project guard + blindaje <100% (INV-1)
 **Hash:** `221b6a6`
 **Rama:** `feat/api-completion`
