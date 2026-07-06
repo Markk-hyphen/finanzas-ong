@@ -9,6 +9,7 @@ use App\Application\ShareLoader;
 use App\Domain\Model\Allocation;
 use App\Domain\Service\AllocationValidator;
 use App\Domain\Service\BalanceCalculator;
+use App\Domain\Service\ProjectGuard;
 use App\Domain\Strategy\ProportionalToCredit;
 use App\Entity\Member;
 use App\Entity\Movement;
@@ -29,6 +30,7 @@ class PaymentController extends AbstractController
         private readonly BalanceCalculator $calculator,
         private readonly ProportionalToCredit $strategy,
         private readonly AllocationValidator $validator,
+        private readonly ProjectGuard $projectGuard,
     ) {}
 
     #[Route('/projects/{id}/payments/preview', methods: ['POST'])]
@@ -157,6 +159,13 @@ class PaymentController extends AbstractController
 
         if (!$membership) {
             return new JsonResponse(['error' => 'Access denied.'], 403);
+        }
+
+        if (!$this->projectGuard->isActive($project)) {
+            return new JsonResponse(
+                ['error' => 'El proyecto no está activo: los porcentajes de los socios deben sumar 100% antes de registrar movimientos.'],
+                409
+            );
         }
 
         $body   = json_decode($request->getContent(), true) ?? [];
