@@ -64,6 +64,43 @@ Antes, cada cambio de socio era: logout, recordar la password, login. Ahora es u
 | `payments/04-batch.bru` | Inspecciona los movimientos de un `{{batch_id}}` (útil después de crear un pago, antes de confirmarlo) |
 | `admin/01-cancel-movement.bru` | Cancela un movimiento (requiere `ROLE_ADMIN`) |
 | `materials/01-search.bru` | Autocomplete de materiales |
+| `movements/01-get.bru` | Detalle de un movimiento (solo visible para socios del proyecto) |
+
+## Administración (crear proyectos/socios/membresías/materiales)
+
+Endpoints de escritura agregados para dejar de tocar Postgres a mano. Requieren token de **admin** (`login-as` sobre Marcos, `marcosfsoler@gmail.com` — ver `qa/02-members.bru` para encontrar su id) salvo `materials/02-create.bru` y `members/05-me-update.bru`, que alcanza con estar autenticado como cualquier socio.
+
+**Flujo para armar un proyecto de cero:**
+
+```
+1. qa/02-members.bru              (ver id del admin y de los socios a agregar)
+2. qa/01-login-as.bru             ({{token}} = admin)
+3. projects/05-create.bru         (crea el proyecto → responde active: false)
+4. projects/07-add-member.bru     (repetir por cada socio hasta sumar 100%)
+   → cuando la suma llega a 100.00, la respuesta trae projectActive: true
+5. A partir de ahí, expenses/payments funcionan normalmente sobre el proyecto
+```
+
+**Invariantes que blindan el dominio (ver `docs/api-completion-runbook.md` para el detalle):**
+
+- **INV-1 (blindaje <100%):** un proyecto con la suma de % distinta de 100.00 rechaza `expenses`/`payments` con `409`. Es la razón del paso 4 arriba.
+- **INV-2 (congelamiento):** en cuanto el proyecto tiene un movimiento, `projects/07-add-member.bru` y `projects/08-remove-member.bru` devuelven `409` — la membresía queda fija para no reescribir balances históricos.
+- **INV-3 (suma ≤ 100%):** `projects/07-add-member.bru` rechaza con `422` cualquier alta que haga superar el 100%.
+
+**Endpoints:**
+
+| Request | Quién | Qué hace |
+|---|---|---|
+| `projects/05-create.bru` | admin | Crea un proyecto vacío |
+| `projects/06-rename.bru` | admin | Renombra un proyecto |
+| `projects/07-add-member.bru` | admin | Asocia un socio con un % (bloqueado si el proyecto ya tiene movimientos) |
+| `projects/08-remove-member.bru` | admin | Desvincula un socio (mismo bloqueo) |
+| `members/02-create.bru` | admin | Crea un socio (`admin: true/false` en el body) |
+| `members/03-edit.bru` | admin | Edita `name`/`email`/`active` de un socio |
+| `members/04-set-roles.bru` | admin | Otorga/revoca `ROLE_ADMIN` (un admin no puede auto-revocarse) |
+| `members/05-me-update.bru` | self | Edita el propio `name`/`email`/`password` — no toca proyectos/% |
+| `materials/02-create.bru` | cualquier socio | Crea un material, idempotente por nombre normalizado |
+| `materials/03-rename.bru` | admin | Renombra un material |
 
 ## Variables del environment
 
@@ -73,5 +110,7 @@ Antes, cada cambio de socio era: logout, recordar la password, login. Ahora es u
 | `login` / `password` | Credenciales para el login inicial | fijo (staging) / secret (prod) |
 | `token` | JWT activo | automático (login o login-as) |
 | `project_id` | Proyecto sobre el que estás testeando | manual |
-| `member_id` | Socio a impersonar con login-as | manual — sacalo de `qa/02-members.bru`, el default de fábrica no es un id válido (autoincremental, cambia por entorno) |
+| `member_id` | Socio a impersonar con login-as, o a administrar (agregar a un proyecto, editar, etc.) | manual — sacalo de `qa/02-members.bru`, el default de fábrica no es un id válido (autoincremental, cambia por entorno) |
+| `material_id` | Material a renombrar (`materials/03-rename.bru`) | manual — sacalo de `materials/01-search.bru` o de la respuesta de `materials/02-create.bru` |
 | `batch_id` | Batch del último pago creado | automático (`create-payment`) |
+| `movement_id` | Movimiento a cancelar o consultar en detalle | manual |

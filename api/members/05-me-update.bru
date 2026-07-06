@@ -1,0 +1,21 @@
+meta {
+  name: Update Me (self)
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{base_url}}/api/me
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Mi Nombre Actualizado"
+  }
+}
