@@ -1,5 +1,24 @@
 # Registro de commits del agente
 
+## [API-COMPLETION] feat: project guard + blindaje <100% (INV-1)
+**Hash:** `221b6a6`
+**Rama:** `feat/api-completion`
+**Fecha:** 2026-07-06
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `backend/src/Domain/Service/ProjectGuard.php` | nuevo | `sumPercentage`/`isActive`/`hasMovements` — chequeos derivados, sin columnas ni migración nueva |
+| `backend/src/Controller/ExpenseController.php` | modificado | `create()` rechaza con `409` si el proyecto no está activo (INV-1) |
+| `backend/src/Controller/PaymentController.php` | modificado | `resolveAllocation()` (compartido por `preview` y `create`) aplica el mismo chequeo |
+
+### Justificación
+Punto de partida de la feature "completar la API" (ver `docs/api-completion-runbook.md`, escrito en sesión previa). El balance de cada socio se deriva matemáticamente del `%` **actual** de cada membresía (`BalanceCalculator`), así que un proyecto con socios que no suman 100% tiene un "hueco" de costo sin dueño. En vez de resolver esa deuda de diseño de fondo (rediseño evaluado y pospuesto a sesión aparte, ver memoria `design-debt-membership`), este commit la **blindea**: un proyecto solo acepta gastos/pagos si Σ% == 100.00. `ProjectGuard` queda deliberadamente chico y autocontenido — sin estado, sin columnas — para que el rediseño futuro lo pueda descartar sin arrastrar nada.
+
+El chequeo se aplicó en `resolveAllocation()` (no en `create`/`preview` por separado) porque ambos endpoints comparten esa validación interna — cubre los dos con un solo punto de inserción. Se dejó `confirm`, `batch` y `MovementController::cancel` sin tocar a propósito: operan sobre ledger ya existente, el hueco de % no los afecta y deben seguir funcionando aunque el proyecto deje de estar activo después (ej. tras sacar un socio antes de INV-2... aunque en la práctica INV-2 ya lo impide).
+
+Un segundo invariante hermano (INV-2, congelamiento de membresía per-proyecto en cuanto hay movimientos) se agregó en el mismo `ProjectGuard` y se aplicó en los endpoints de alta/baja de socios (commit `ecbd3d2`, mismo día) — juntos evitan que editar o sacar socios reescriba retroactivamente balances históricos. Verificado end-to-end con un checklist manual de 11 puntos (proyecto vacío → bloqueo `409` → alta de socios hasta 100% → exceso rechazado `422` → gasto aceptado → congelamiento `409` → confirmar/cancelar siguen funcionando).
+
 ## [QA] fix: agregar descubrimiento público de socios para desbloquear el bootstrap de login-as
 **Hash:** `1d9085c`
 **Rama:** `main`
