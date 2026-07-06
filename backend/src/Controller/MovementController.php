@@ -18,6 +18,44 @@ class MovementController extends AbstractController
 {
     public function __construct(private readonly EntityManagerInterface $em) {}
 
+    #[Route('/movements/{id}', methods: ['GET'])]
+    public function get(int $id): JsonResponse
+    {
+        /** @var Member $member */
+        $member = $this->getUser();
+
+        $movement = $this->em->find(Movement::class, $id);
+        if (!$movement) {
+            return new JsonResponse(['error' => 'Movement not found.'], 404);
+        }
+
+        $membership = $this->em->createQuery(
+            'SELECT mp FROM App\Entity\MemberProject mp WHERE mp.member = :member AND mp.project = :project'
+        )
+        ->setParameter('member', $member)
+        ->setParameter('project', $movement->getProject())
+        ->getOneOrNullResult();
+
+        if (!$membership) {
+            return new JsonResponse(['error' => 'Access denied.'], 403);
+        }
+
+        return new JsonResponse([
+            'id'           => $movement->getId(),
+            'type'         => $movement->getType(),
+            'status'       => $movement->getStatus(),
+            'amount'       => $movement->getAmount(),
+            'fromMemberId' => $movement->getFromMember() !== null ? (int) $movement->getFromMember()->getId() : null,
+            'toMemberId'   => $movement->getToMember() !== null ? (int) $movement->getToMember()->getId() : null,
+            'batchId'      => $movement->getBatchId(),
+            'material'     => $movement->getMaterial()?->getName(),
+            'quantity'     => $movement->getQuantity(),
+            'reason'       => $movement->getReason(),
+            'createdById'  => (int) $movement->getCreatedBy()->getId(),
+            'createdAt'    => $movement->getCreatedAt()->format(\DateTimeInterface::RFC3339),
+        ]);
+    }
+
     #[Route('/movements/{id}/cancel', methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN')]
     public function cancel(int $id, Request $request): JsonResponse
