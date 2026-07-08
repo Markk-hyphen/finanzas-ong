@@ -1,5 +1,45 @@
 # Registro de commits del agente
 
+## [API-COMPLETION] feat: environment local para Bruno + fix de parseo en prod.bru
+**Hash:** `f4df2dd`
+**Rama:** `feat/api-completion`
+**Fecha:** 2026-07-06
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `api/environments/local.bru` | nuevo | Environment `http://localhost` con mismas credenciales de admin que staging (`marcosfsoler`/`marcos32`) |
+| `api/environments/prod.bru` | modificado | Agrega comas faltantes entre los 3 elementos de `vars:secret [login, password, token]` |
+| `api/README.md` | modificado | Documenta el environment local y corrige la mención desactualizada de credenciales de staging |
+
+### Justificación
+Marcos reportó que Bruno se colgaba apenas la abría, sospechando que era por el environment local que yo acababa de agregar. Investigué: los `.bru` nuevos de la sesión (colección de endpoints de escritura) parseaban bien, el proceso no crasheaba (sin dumps en Crashpad) sino que quedaba inerte (~1% CPU, sin escribir estado nuevo) — un hang, no un crash. Relancé Bruno desde terminal con `--enable-logging=stderr` para ver el stdout real, y ahí apareció: `Error processing environment file` al parsear `prod.bru`, en la línea del bloque `vars:secret`.
+
+Causa raíz: extraje el `app.asar` de Bruno y leí la gramática real (`@usebruno/lang/v2/src/envToJson.js`): `valuelist = arrayvalue ("," arrayvalue)*` — el parser exige **coma** entre elementos de un array cuando hay más de uno. `prod.bru` tenía `login`/`password`/`token` uno por línea sin comas desde el commit `27ff98c` (30/06). `staging.bru` nunca disparó el bug porque su `vars:secret` tiene un solo elemento (`token`) — no necesita separador. El bug estaba latente hasta que (a) Bruno se autoactualizó a 3.5.1 el 04/07 (versión con este parser más estricto) y (b) hoy toqué `prod.bru` para agregarle `material_id`, dispersando el re-parseo que lo expuso por primera vez.
+
+Se descartó la hipótesis inicial (que el problema fueran mis archivos `.bru` nuevos) con evidencia: ninguno de los archivos que yo creé tiene `vars:secret` con más de un elemento, y todos parsearon sin error en el mismo log.
+
+**Estado de verificación:** confirmé desde la terminal que el error de parseo desaparece con el fix y que el proceso pasa de CPU inerte (~1%, sin progreso) a actividad normal de renderizado (pico y luego baja a idle real). **Marcos todavía no confirmó en su sesión real de la app** — planea reiniciar la PC primero por si hay caché de por medio. Pendiente confirmar en la próxima sesión si el reinicio + este fix resolvieron el cuelgue para él.
+
+## [API-COMPLETION] feat: project guard + blindaje <100% (INV-1)
+**Hash:** `221b6a6`
+**Rama:** `feat/api-completion`
+**Fecha:** 2026-07-06
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `backend/src/Domain/Service/ProjectGuard.php` | nuevo | `sumPercentage`/`isActive`/`hasMovements` — chequeos derivados, sin columnas ni migración nueva |
+| `backend/src/Controller/ExpenseController.php` | modificado | `create()` rechaza con `409` si el proyecto no está activo (INV-1) |
+| `backend/src/Controller/PaymentController.php` | modificado | `resolveAllocation()` (compartido por `preview` y `create`) aplica el mismo chequeo |
+
+### Justificación
+Punto de partida de la feature "completar la API" (ver `docs/api-completion-runbook.md`, escrito en sesión previa). El balance de cada socio se deriva matemáticamente del `%` **actual** de cada membresía (`BalanceCalculator`), así que un proyecto con socios que no suman 100% tiene un "hueco" de costo sin dueño. En vez de resolver esa deuda de diseño de fondo (rediseño evaluado y pospuesto a sesión aparte, ver memoria `design-debt-membership`), este commit la **blindea**: un proyecto solo acepta gastos/pagos si Σ% == 100.00. `ProjectGuard` queda deliberadamente chico y autocontenido — sin estado, sin columnas — para que el rediseño futuro lo pueda descartar sin arrastrar nada.
+
+El chequeo se aplicó en `resolveAllocation()` (no en `create`/`preview` por separado) porque ambos endpoints comparten esa validación interna — cubre los dos con un solo punto de inserción. Se dejó `confirm`, `batch` y `MovementController::cancel` sin tocar a propósito: operan sobre ledger ya existente, el hueco de % no los afecta y deben seguir funcionando aunque el proyecto deje de estar activo después (ej. tras sacar un socio antes de INV-2... aunque en la práctica INV-2 ya lo impide).
+
+Un segundo invariante hermano (INV-2, congelamiento de membresía per-proyecto en cuanto hay movimientos) se agregó en el mismo `ProjectGuard` y se aplicó en los endpoints de alta/baja de socios (commit `ecbd3d2`, mismo día) — juntos evitan que editar o sacar socios reescriba retroactivamente balances históricos. Verificado end-to-end con un checklist manual de 11 puntos (proyecto vacío → bloqueo `409` → alta de socios hasta 100% → exceso rechazado `422` → gasto aceptado → congelamiento `409` → confirmar/cancelar siguen funcionando).
+
 ## [QA] fix: agregar descubrimiento público de socios para desbloquear el bootstrap de login-as
 **Hash:** `1d9085c`
 **Rama:** `main`

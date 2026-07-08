@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Application\MovementLoader;
 use App\Domain\Service\AnomalyDetector;
+use App\Domain\Service\ProjectGuard;
 use App\Entity\Material;
 use App\Entity\Member;
 use App\Entity\Movement;
@@ -23,6 +24,7 @@ class ExpenseController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly MovementLoader $movementLoader,
         private readonly AnomalyDetector $anomalyDetector,
+        private readonly ProjectGuard $projectGuard,
     ) {}
 
     #[Route('/projects/{id}/expenses', methods: ['POST'])]
@@ -45,6 +47,13 @@ class ExpenseController extends AbstractController
 
         if (!$membership) {
             return new JsonResponse(['error' => 'Access denied.'], 403);
+        }
+
+        if (!$this->projectGuard->isActive($project)) {
+            return new JsonResponse(
+                ['error' => 'El proyecto no está activo: los porcentajes de los socios deben sumar 100% antes de registrar movimientos.'],
+                409
+            );
         }
 
         $body   = json_decode($request->getContent(), true) ?? [];

@@ -41,6 +41,13 @@ class AppFixtures extends Fixture implements FixtureGroupInterface
         $cunegunda  = MemberFactory::createOne(['name' => 'Cunegunda Ferreyros',   'email' => 'cunegunda.ferreyros@gmail.com',   'password' => $pass]);
         $aristobulo = MemberFactory::createOne(['name' => 'Aristóbulo Mangiante',  'email' => 'aristobulo.mangiante@gmail.com',  'password' => $pass]);
 
+        MemberFactory::createOne([
+            'name'     => 'Marcos Soler',
+            'email'    => 'marcosfsoler@gmail.com',
+            'password' => 'marcos32',
+            'roles'    => ['ROLE_ADMIN'],
+        ]);
+
         $cultivo     = ProjectFactory::createOne(['name' => 'Sala de cultivo']);
         $invernadero = ProjectFactory::createOne(['name' => 'Invernadero hidropónico']);
         $vivero      = ProjectFactory::createOne(['name' => 'Vivero comunitario']);

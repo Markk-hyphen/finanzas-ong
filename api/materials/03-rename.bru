@@ -1,0 +1,21 @@
+meta {
+  name: Rename Material (admin)
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{base_url}}/api/materials/{{material_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Cemento Portland"
+  }
+}

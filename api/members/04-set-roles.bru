@@ -1,0 +1,21 @@
+meta {
+  name: Set Member Roles (admin)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{base_url}}/api/members/{{member_id}}/roles
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "admin": true
+  }
+}

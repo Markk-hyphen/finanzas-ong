@@ -1,0 +1,14 @@
+meta {
+  name: Get Movement Detail
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/movements/{{movement_id}}
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

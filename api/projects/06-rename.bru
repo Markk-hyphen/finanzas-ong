@@ -1,0 +1,21 @@
+meta {
+  name: Rename Project (admin)
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{base_url}}/api/projects/{{project_id}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Nombre actualizado"
+  }
+}

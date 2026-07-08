@@ -1,0 +1,21 @@
+meta {
+  name: Create Material (idempotent)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/api/materials
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Cemento"
+  }
+}

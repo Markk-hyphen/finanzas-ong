@@ -1,0 +1,24 @@
+meta {
+  name: Create Member (admin)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/api/members
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Nuevo Socio",
+    "email": "nuevo.socio@example.com",
+    "password": "cambiame123",
+    "admin": false
+  }
+}
