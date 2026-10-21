@@ -1,0 +1,21 @@
+meta {
+  name: Instance Capabilities
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/instance/capabilities
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Qué ofrece esta instancia según los servicios opcionales que corren.
+  `autoTimeout` es true solo si el scheduler (profile `cron`) latió en los
+  últimos 15 min (`app:payments:auto-confirm` escribe el heartbeat).
+}

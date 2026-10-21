@@ -1,0 +1,21 @@
+meta {
+  name: Undo Expense (author)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/api/expenses/{{movement_id}}/undo
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  El autor deshace su propio gasto dentro de `selfCancelMinutes` del proyecto
+  (anulación tipo `self_correction`). Pasado el plazo, solo el admin puede
+  anularlo (`admin/01-cancel-movement.bru`).
+}

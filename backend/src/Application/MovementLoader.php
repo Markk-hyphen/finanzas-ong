@@ -30,6 +30,9 @@ class MovementLoader
             amount: $m->getAmount(),
             batchId: $m->getBatchId(),
             cancelsMovementId: $m->getCancelsMovement() !== null ? (int) $m->getCancelsMovement()->getId() : null,
+            createdAt: $m->getCreatedAt(),
+            createdById: (int) $m->getCreatedBy()->getId(),
+            confirmedVia: $m->getConfirmedVia(),
         ), $rows);
     }
 }

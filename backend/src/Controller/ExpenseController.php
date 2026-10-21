@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Application\MovementLoader;
+use App\Application\UserCancellation;
+use App\Domain\Service\CancellationPolicy;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use App\Domain\Service\AnomalyDetector;
 use App\Domain\Service\DecimalParser;
 use App\Domain\Service\ProjectGuard;
@@ -28,6 +31,7 @@ class ExpenseController extends AbstractController
         private readonly AnomalyDetector $anomalyDetector,
         private readonly ProjectGuard $projectGuard,
         private readonly DecimalParser $decimals,
+        private readonly UserCancellation $userCancellation,
     ) {}
 
     #[Route('/projects/{id}/expenses', methods: ['POST'])]
@@ -35,6 +39,34 @@ class ExpenseController extends AbstractController
     {
         // Same per-project lock as payment creation: ledger writes are serialized.
         return $this->em->wrapInTransaction(fn() => $this->persistExpense($id, $request));
+    }
+
+    // Author undoes their own expense within the project's self-cancel window.
+    #[Route('/expenses/{id}/undo', methods: ['POST'])]
+    public function undo(int $id): JsonResponse
+    {
+        /** @var Member $member */
+        $member = $this->getUser();
+
+        try {
+            return $this->em->wrapInTransaction(function () use ($id, $member) {
+                $expense = $this->em->find(Movement::class, $id);
+                if (!$expense || $expense->getType() !== Movement::TYPE_EXPENSE) {
+                    return new JsonResponse(['error' => 'Expense not found.'], 404);
+                }
+
+                $count = $this->userCancellation->cancel(
+                    $expense->getProject(), [$expense], $member, CancellationPolicy::ACTION_UNDO, 'Deshecho por el autor.',
+                );
+                if ($count === 0) {
+                    return new JsonResponse(['error' => 'No podés deshacer este gasto (no es tuyo, ya fue anulado o venció el plazo).'], 409);
+                }
+
+                return new JsonResponse(['id' => $id, 'undone' => true]);
+            });
+        } catch (UniqueConstraintViolationException) {
+            return new JsonResponse(['error' => 'Ese gasto ya fue anulado.'], 409);
+        }
     }
 
     private function persistExpense(int $id, Request $request): JsonResponse

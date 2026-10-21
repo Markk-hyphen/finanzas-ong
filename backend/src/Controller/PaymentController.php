@@ -6,7 +6,11 @@ namespace App\Controller;
 
 use App\Application\MovementLoader;
 use App\Application\ShareLoader;
+use App\Application\UserCancellation;
+use App\Domain\Service\CancellationPolicy;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use App\Domain\Model\Allocation;
+use App\Domain\Model\ProjectSettings;
 use App\Domain\Service\AllocationValidator;
 use App\Domain\Service\BalanceCalculator;
 use App\Domain\Service\DecimalParser;
@@ -34,6 +38,7 @@ class PaymentController extends AbstractController
         private readonly AllocationValidator $validator,
         private readonly ProjectGuard $projectGuard,
         private readonly DecimalParser $decimals,
+        private readonly UserCancellation $userCancellation,
     ) {}
 
     #[Route('/projects/{id}/payments/preview', methods: ['POST'])]
@@ -71,7 +76,13 @@ class PaymentController extends AbstractController
         /** @var Member $member */
         $member  = $result['member'];
 
-        $batchId = $this->generateUuid();
+        $batchId  = $this->generateUuid();
+        $settings = $project->getSettings();
+        $now      = new \DateTimeImmutable();
+        // The project's mode is applied now and frozen in each row (E1).
+        $autoConfirmAt = $settings->confirmationMode === ProjectSettings::MODE_AUTO_TIMEOUT
+            ? $now->modify("+{$settings->objectionWindowHours} hours")
+            : null;
 
         foreach ($allocations as $allocation) {
             $toMember = $this->em->find(Member::class, $allocation->toMemberId);
@@ -82,16 +93,24 @@ class PaymentController extends AbstractController
             $payment->setFromMember($member);
             $payment->setToMember($toMember);
             $payment->setAmount($allocation->amount);
-            $payment->setStatus(Movement::STATUS_PENDING);
             $payment->setBatchId($batchId);
+
+            if ($settings->confirmationMode === ProjectSettings::MODE_OPTIMISTIC) {
+                $payment->confirm(null, 'optimistic', $now);
+            } else {
+                $payment->setStatus(Movement::STATUS_PENDING);
+                $payment->setAutoConfirmAt($autoConfirmAt);
+            }
             $this->em->persist($payment);
         }
 
         $this->em->flush();
 
         return new JsonResponse([
-            'batchId'     => $batchId,
-            'allocations' => $this->serializeAllocations($allocations, $result['memberNames']),
+            'batchId'          => $batchId,
+            'confirmationMode' => $settings->confirmationMode,
+            'autoConfirmAt'    => $autoConfirmAt?->format(\DateTimeInterface::RFC3339),
+            'allocations'      => $this->serializeAllocations($allocations, $result['memberNames']),
         ], 201);
     }
 
@@ -147,13 +166,78 @@ class PaymentController extends AbstractController
             return new JsonResponse(['error' => 'No pending payments found for this batch.'], 404);
         }
 
+        $now = new \DateTimeImmutable();
         foreach ($payments as $payment) {
-            $payment->setStatus(Movement::STATUS_CONFIRMED);
+            $payment->confirm($member, 'receiver', $now);
         }
 
         $this->em->flush();
 
         return new JsonResponse(['confirmed' => count($payments)]);
+    }
+
+    // Payer takes back their pending shares (or fixes an optimistic payment
+    // within the self-cancel window). Shares already confirmed stay.
+    #[Route('/payments/{batchId}/withdraw', methods: ['POST'])]
+    public function withdraw(string $batchId): JsonResponse
+    {
+        return $this->cancelOwnShares(
+            $batchId,
+            'fromMember',
+            CancellationPolicy::ACTION_WITHDRAW,
+            'Retirado por el pagador.',
+            'No hay partes de este pago que puedas retirar (ya fueron confirmadas o venció el plazo).',
+        );
+    }
+
+    // Receiver rejects their own share ("no me llegó"); the other shares stay.
+    #[Route('/payments/{batchId}/reject', methods: ['POST'])]
+    public function reject(string $batchId, Request $request): JsonResponse
+    {
+        $body   = json_decode($request->getContent(), true) ?? [];
+        $reason = is_string($body['reason'] ?? null) && trim($body['reason']) !== ''
+            ? trim($body['reason'])
+            : 'Rechazado por el receptor.';
+
+        return $this->cancelOwnShares(
+            $batchId,
+            'toMember',
+            CancellationPolicy::ACTION_REJECT,
+            $reason,
+            'No hay partes de este pago que puedas rechazar (ya las confirmaste o venció el plazo de objeción).',
+        );
+    }
+
+    private function cancelOwnShares(string $batchId, string $side, string $action, string $reason, string $nothingMessage): JsonResponse
+    {
+        /** @var Member $member */
+        $member = $this->getUser();
+
+        try {
+            return $this->em->wrapInTransaction(function () use ($batchId, $side, $action, $reason, $nothingMessage, $member) {
+                $shares = $this->em->createQuery(
+                    "SELECT m FROM App\Entity\Movement m
+                     WHERE m.batchId = :batchId AND m.type = :payment AND m.{$side} = :member"
+                )
+                ->setParameter('batchId', $batchId)
+                ->setParameter('payment', Movement::TYPE_PAYMENT)
+                ->setParameter('member', $member)
+                ->getResult();
+
+                if (empty($shares)) {
+                    return new JsonResponse(['error' => 'Batch not found.'], 404);
+                }
+
+                $count = $this->userCancellation->cancel($shares[0]->getProject(), $shares, $member, $action, $reason);
+                if ($count === 0) {
+                    return new JsonResponse(['error' => $nothingMessage], 409);
+                }
+
+                return new JsonResponse(['batchId' => $batchId, 'cancelled' => $count]);
+            });
+        } catch (UniqueConstraintViolationException) {
+            return new JsonResponse(['error' => 'Ese pago ya fue anulado.'], 409);
+        }
     }
 
     /** @return JsonResponse|array{allocations: Allocation[], memberNames: array<int,string>, project: Project, member: Member} */

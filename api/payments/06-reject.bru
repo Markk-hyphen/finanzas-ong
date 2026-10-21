@@ -1,0 +1,28 @@
+meta {
+  name: Reject Payment (receiver)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{base_url}}/api/payments/{{batch_id}}/reject
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "reason": "No me llegó la transferencia"
+  }
+}
+
+docs {
+  El receptor rechaza SU parte (anulación tipo `rejection`): un pago pendiente
+  en cualquier modo, o uno `optimistic` dentro del plazo de objeción. Las demás
+  partes del mismo pago siguen vigentes. `reason` es opcional. 409 si ya lo
+  confirmó, se autoconfirmó o venció el plazo.
+}

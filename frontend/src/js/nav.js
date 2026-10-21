@@ -1,6 +1,12 @@
 import { storage } from './api.js';
 
 export function navigate(path) {
+    // Assigning the current hash fires no hashchange, so "go back to the same
+    // view" after an action (confirm, reject, cancel...) would not re-render it.
+    if (location.hash === '#' + path) {
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+        return;
+    }
     location.hash = '#' + path;
 }
 

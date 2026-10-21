@@ -3,3 +3,9 @@
 # `cron` (ver docker-compose.yml) y agrega aquí sus líneas. Ejemplo:
 #
 #   */5 * * * * bin/console app:my-command -v
+
+# finanzas-ong: autoconfirmación de pagos en modo auto_timeout + heartbeat que
+# le indica a la API que esta instancia puede ofrecer ese modo (ver
+# docs/fase1-modos-de-confirmacion.md §2.1). Sin el profile `cron`, este job no
+# corre y la API no ofrece auto_timeout.
+*/5 * * * * bin/console app:payments:auto-confirm -v

@@ -6,7 +6,10 @@ namespace App\Controller;
 
 use App\Application\MovementLoader;
 use App\Application\ShareLoader;
+use App\Application\SchedulerStatus;
+use App\Domain\Model\ProjectSettings;
 use App\Domain\Service\BalanceCalculator;
+use App\Domain\Service\CancellationPolicy;
 use App\Domain\Service\DecimalParser;
 use App\Domain\Service\ProjectGuard;
 use App\Entity\Member;
@@ -30,7 +33,26 @@ class ProjectController extends AbstractController
         private readonly BalanceCalculator $calculator,
         private readonly ProjectGuard $projectGuard,
         private readonly DecimalParser $decimals,
+        private readonly SchedulerStatus $scheduler,
+        private readonly CancellationPolicy $cancellationPolicy,
     ) {}
+
+    private function intOrNull(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        return is_string($value) && preg_match('/^\d{1,6}$/', $value) === 1 ? (int) $value : null;
+    }
+
+    private function serializeSettings(ProjectSettings $settings): array
+    {
+        return [
+            'confirmationMode'     => $settings->confirmationMode,
+            'objectionWindowHours' => $settings->objectionWindowHours,
+            'selfCancelMinutes'    => $settings->selfCancelMinutes,
+        ];
+    }
 
     #[Route('/projects', methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN')]
@@ -70,6 +92,50 @@ class ProjectController extends AbstractController
         $this->em->flush();
 
         return new JsonResponse(['id' => $project->getId(), 'name' => $project->getName()]);
+    }
+
+    #[Route('/projects/{id}/settings', methods: ['PATCH'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function updateSettings(int $id, Request $request): JsonResponse
+    {
+        $project = $this->em->find(Project::class, $id);
+        if (!$project) {
+            return new JsonResponse(['error' => 'Project not found.'], 404);
+        }
+
+        $body    = json_decode($request->getContent(), true) ?? [];
+        $current = $project->getSettings();
+
+        $mode = array_key_exists('confirmationMode', $body) ? $body['confirmationMode'] : $current->confirmationMode;
+        if (!in_array($mode, ProjectSettings::MODES, true)) {
+            return new JsonResponse(['error' => 'confirmationMode must be one of: ' . implode(', ', ProjectSettings::MODES) . '.'], 400);
+        }
+
+        $objection = array_key_exists('objectionWindowHours', $body) ? $this->intOrNull($body['objectionWindowHours']) : $current->objectionWindowHours;
+        if ($objection === null || $objection < 1 || $objection > 720) {
+            return new JsonResponse(['error' => 'objectionWindowHours must be an integer between 1 and 720.'], 400);
+        }
+
+        $selfCancel = array_key_exists('selfCancelMinutes', $body) ? $this->intOrNull($body['selfCancelMinutes']) : $current->selfCancelMinutes;
+        if ($selfCancel === null || $selfCancel < 0 || $selfCancel > 1440) {
+            return new JsonResponse(['error' => 'selfCancelMinutes must be an integer between 0 and 1440.'], 400);
+        }
+
+        // auto_timeout needs the scheduler; switching to it on an instance without
+        // one would leave payments waiting for a confirmation that never comes.
+        if ($mode === ProjectSettings::MODE_AUTO_TIMEOUT
+            && $current->confirmationMode !== ProjectSettings::MODE_AUTO_TIMEOUT
+            && !$this->scheduler->isAlive()) {
+            return new JsonResponse(
+                ['error' => 'No es posible configurar auto timeout en esta instancia: no hay un scheduler activo.'],
+                409
+            );
+        }
+
+        $project->applySettings(new ProjectSettings($mode, $objection, $selfCancel));
+        $this->em->flush();
+
+        return new JsonResponse(['id' => $project->getId(), 'settings' => $this->serializeSettings($project->getSettings())]);
     }
 
     #[Route('/projects', methods: ['GET'])]
@@ -320,6 +386,7 @@ class ProjectController extends AbstractController
 
         return new JsonResponse([
             'project'        => ['id' => $project->getId(), 'name' => $project->getName()],
+            'settings'       => $this->serializeSettings($project->getSettings()),
             'totalCost'      => $totalCost,
             'balances'       => $balancesData,
             'movements'      => $movementsData,
@@ -396,22 +463,39 @@ class ProjectController extends AbstractController
         ->setParameter('member', $member)
         ->getResult();
 
+        // What the member may undo/withdraw/reject, decided by the domain policy
+        // so the frontend never re-implements the rules.
+        $settings = $project->getSettings();
+        $now      = new \DateTimeImmutable();
+        $records  = [];
+        foreach ($movements as $r) {
+            $records[$r->id] = $r;
+        }
+        $actionsOf = fn(Movement $m): array => isset($records[(int) $m->getId()])
+            ? $this->cancellationPolicy->actionsFor($records[(int) $m->getId()], (int) $member->getId(), $settings, $now)
+            : [];
+
         $movementsData = [];
         foreach ($myMovements as $m) {
             if (isset($cancelledIds[(int) $m->getId()])) {
                 continue;
             }
             $movementsData[] = [
-                'id'           => $m->getId(),
-                'type'         => $m->getType(),
-                'status'       => $m->getStatus(),
-                'amount'       => $m->getAmount(),
-                'fromMemberId' => $m->getFromMember() !== null ? (int) $m->getFromMember()->getId() : null,
-                'toMemberId'   => $m->getToMember() !== null ? (int) $m->getToMember()->getId() : null,
-                'batchId'      => $m->getBatchId(),
-                'material'     => $m->getMaterial()?->getName(),
-                'quantity'     => $m->getQuantity(),
-                'createdAt'    => $m->getCreatedAt()->format(\DateTimeInterface::RFC3339),
+                'id'             => $m->getId(),
+                'type'           => $m->getType(),
+                'status'         => $m->getStatus(),
+                'amount'         => $m->getAmount(),
+                'fromMemberId'   => $m->getFromMember() !== null ? (int) $m->getFromMember()->getId() : null,
+                'fromMemberName' => $m->getFromMember()?->getName(),
+                'toMemberId'     => $m->getToMember() !== null ? (int) $m->getToMember()->getId() : null,
+                'toMemberName'   => $m->getToMember()?->getName(),
+                'batchId'        => $m->getBatchId(),
+                'material'       => $m->getMaterial()?->getName(),
+                'quantity'       => $m->getQuantity(),
+                'confirmedVia'   => $m->getConfirmedVia(),
+                'autoConfirmAt'  => $m->getAutoConfirmAt()?->format(\DateTimeInterface::RFC3339),
+                'createdAt'      => $m->getCreatedAt()->format(\DateTimeInterface::RFC3339),
+                'actions'        => $actionsOf($m),
             ];
         }
 
@@ -437,14 +521,30 @@ class ProjectController extends AbstractController
             'fromMemberId'   => $m->getFromMember() !== null ? (int) $m->getFromMember()->getId() : null,
             'fromMemberName' => $m->getFromMember()?->getName(),
             'amount'         => $m->getAmount(),
+            'autoConfirmAt'  => $m->getAutoConfirmAt()?->format(\DateTimeInterface::RFC3339),
             'createdAt'      => $m->getCreatedAt()->format(\DateTimeInterface::RFC3339),
+            'actions'        => $actionsOf($m),
         ], $pending);
 
         // Own balance with unconfirmed payments reserved: what is still payable.
         $projected = $this->calculator->calculate($movements, $shares, includePending: true);
 
+        // Payments waiting for a self-confirmation that will not happen until the
+        // scheduler is back (it died, or the instance never had one).
+        $hasAutoPending = false;
+        foreach ($myMovements as $m) {
+            if ($m->getStatus() === Movement::STATUS_PENDING && $m->getAutoConfirmAt() !== null && !isset($cancelledIds[(int) $m->getId()])) {
+                $hasAutoPending = true;
+                break;
+            }
+        }
+        $autoConfirmStalled = ($hasAutoPending || $settings->confirmationMode === ProjectSettings::MODE_AUTO_TIMEOUT)
+            && !$this->scheduler->isAlive();
+
         return new JsonResponse([
             'project'              => ['id' => $project->getId(), 'name' => $project->getName()],
+            'settings'             => $this->serializeSettings($settings),
+            'autoConfirmStalled'   => $autoConfirmStalled,
             'totalCost'            => $totalCost,
             'balances'             => $balancesData,
             'myProjectedBalance'   => $projected[(int) $member->getId()] ?? '0.00',
