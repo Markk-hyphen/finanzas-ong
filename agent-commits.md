@@ -1,5 +1,48 @@
 # Registro de commits del agente
 
+## [CONFIRMATION-MODES] Fase 1 del upgrade: modos de confirmación por proyecto + anulación por el usuario (lote de 7 commits)
+**Hash:** merge a `main` (commits `3b8a6ff`..`f4db3e5`)
+**Rama:** `feat/confirmation-modes` → mergeada a `main`
+**Fecha:** 2026-10-21
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `docs/fase1-modos-de-confirmacion.md` | nuevo | Diseño de la Fase 1 + enmienda E1 al `MANIFIESTO.md §11` |
+| `backend/src/Domain/Model/ProjectSettings.php` | nuevo | Value object: modo de confirmación del proyecto (`required`/`optimistic`/`auto_timeout`) + ventanas |
+| `backend/src/Domain/Service/CancellationPolicy.php` | nuevo | Quién puede anular qué movimiento y bajo qué tipo (admin/retiro/rechazo), según el modo y el estado |
+| `backend/src/Application/UserCancellation.php` | nuevo | Orquesta la anulación por pagador/receptor contra `CancellationPolicy` |
+| `backend/src/Application/SchedulerStatus.php` | nuevo | Heartbeat de instancia — detecta si el scheduler (`profile cron`) está activo |
+| `backend/src/Command/AutoConfirmPaymentsCommand.php` | nuevo | Comando del scheduler: autoconfirma pagos `auto_timeout` vencidos |
+| `backend/src/Entity/InstanceHeartbeat.php` | nuevo | Tabla de heartbeat de instancia |
+| `backend/src/Entity/Movement.php` | modificado | Campos de rastro de confirmación (`confirmed_at`/`confirmed_by`) y tipo de anulación |
+| `backend/src/Entity/Project.php` | modificado | Settings de confirmación por proyecto |
+| `backend/migrations/Version20261021131210.php` | nuevo | Migración de los campos/tabla nuevos |
+| `backend/src/Controller/InstanceController.php` | nuevo | `GET /api/instance/capabilities` — expone si `auto_timeout` está disponible (heartbeat) |
+| `backend/src/Controller/ProjectController.php` | modificado | Endpoint de settings del proyecto (modo de confirmación, ventanas) |
+| `backend/src/Controller/PaymentController.php` | modificado | Anulación por pagador (retiro)/receptor (rechazo), aplica `CancellationPolicy` |
+| `backend/src/Controller/ExpenseController.php` | modificado | Retiro de gasto pendiente por su autor |
+| `backend/src/Controller/MovementController.php` | modificado | Ajustes menores de soporte a los nuevos tipos de anulación |
+| `backend/src/Application/MovementLoader.php` | modificado | Mapea los campos nuevos de rastro/anulación |
+| `backend/scheduler/crontab` | modificado | Entrada del comando de autoconfirmación |
+| `frontend/src/js/views/dashboard.js` | modificado | Botones de anulación (retirar/rechazar) según modo y rol |
+| `frontend/src/js/views/payment.js` | modificado | Refresco tras confirmar/anular (fix del bug preexistente de `navigate()`) |
+| `frontend/src/js/views/settings.js` | nuevo | Pantalla de configuración del modo de confirmación por proyecto |
+| `frontend/src/js/api.js`, `frontend/src/js/nav.js`, `frontend/src/main.js` | modificado | Soporte de ruta/API para la pantalla de settings |
+| `backend/tests/Domain/CancellationPolicyTest.php` | nuevo | Tests de la política de anulación |
+| `api/expenses/02-undo.bru`, `api/payments/05-withdraw.bru`, `api/payments/06-reject.bru`, `api/instance/01-capabilities.bru`, `api/projects/09-settings.bru`, `api/README.md` | nuevo/modificado | Requests Bruno + documentación de los endpoints nuevos |
+
+### Justificación
+Segunda fase del upgrade de UX/seguridad pedido por Marcos (la Fase 0 cubrió correctitud del ledger y seguridad de código). El modo `optimistic` (el movimiento nace confirmado, el receptor puede rechazarlo después) es el que más valor agrega a UX pero el más arriesgado sin avisos — motiva la Fase 2 (notificaciones) como siguiente paso, no opcional.
+
+`auto_timeout` se trató como **capacidad de instancia**, no de proyecto: solo tiene sentido si hay un scheduler corriendo (`profile cron`) que ejecute la autoconfirmación. Se detecta por heartbeat en DB en vez de leer el profile de Compose desde el backend (el backend no tiene visibilidad de qué perfiles están activos en el host) — si no hay heartbeat reciente, la UI bloquea la opción con una leyenda, evitando que un proyecto quede en un modo que nunca se va a ejecutar.
+
+Defaults elegidos por el agente y confirmados por Marcos al retomar la sesión: plazo de objeción **48 h**, ventana de autocorrección **15 min**.
+
+Bug preexistente encontrado y arreglado de paso: `navigate()` a la misma ruta no refrescaba el DOM, así que confirmar/anular un pago dejaba el pendiente visible en pantalla hasta recargar manualmente.
+
+Gotcha de dev: el container `scheduler` no monta `vendor` (a diferencia de `backend`) — si cambia `composer.lock` hay que rebuildear su imagen explícitamente, no alcanza con el restart.
+
 ## [HARDENING] Fase 0 del upgrade: correctitud del ledger + seguridad de código (lote de 11 commits)
 **Hash:** merge `73f633e` (commits `d5085af`..`bae0825`)
 **Rama:** `feat/hardening` → mergeada a `main`
