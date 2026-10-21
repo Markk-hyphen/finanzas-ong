@@ -106,6 +106,12 @@ class PaymentController extends AbstractController
             return new JsonResponse(['error' => 'Batch not found.'], 404);
         }
 
+        /** @var Member $member */
+        $member = $this->getUser();
+        if (!$this->projectGuard->canView($member, $movements[0]->getProject())) {
+            return new JsonResponse(['error' => 'Access denied.'], 403);
+        }
+
         return new JsonResponse(array_map(fn(Movement $m) => [
             'id'           => $m->getId(),
             'type'         => $m->getType(),

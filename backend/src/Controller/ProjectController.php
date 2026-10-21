@@ -98,6 +98,12 @@ class ProjectController extends AbstractController
             return new JsonResponse(['error' => 'Project not found.'], 404);
         }
 
+        /** @var Member $member */
+        $member = $this->getUser();
+        if (!$this->projectGuard->canView($member, $project)) {
+            return new JsonResponse(['error' => 'Access denied.'], 403);
+        }
+
         $memberships = $this->em->createQuery(
             'SELECT mp, m FROM App\Entity\MemberProject mp JOIN mp.member m WHERE mp.project = :project ORDER BY m.name ASC'
         )
@@ -218,6 +224,12 @@ class ProjectController extends AbstractController
         $project = $this->em->find(Project::class, $id);
         if (!$project) {
             return new JsonResponse(['error' => 'Project not found.'], 404);
+        }
+
+        /** @var Member $member */
+        $member = $this->getUser();
+        if (!$this->projectGuard->canView($member, $project)) {
+            return new JsonResponse(['error' => 'Access denied.'], 403);
         }
 
         $movements = $this->movementLoader->forProject($project);
