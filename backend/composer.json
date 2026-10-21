@@ -20,10 +20,13 @@
         "symfony/dotenv": "7.4.*",
         "symfony/flex": "^2",
         "symfony/framework-bundle": "7.4.*",
+        "symfony/mailer": "7.4.*",
         "symfony/mercure-bundle": "*",
         "symfony/messenger": "7.4.*",
+        "symfony/notifier": "7.4.*",
         "symfony/rate-limiter": "7.4.*",
         "symfony/runtime": "7.4.*",
+        "symfony/telegram-notifier": "7.4.*",
         "symfony/yaml": "7.4.*"
     },
     "config": {
