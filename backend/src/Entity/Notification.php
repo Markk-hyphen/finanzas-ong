@@ -13,6 +13,8 @@ use Doctrine\ORM\Mapping as ORM;
 // NotificationPublisher).
 #[ORM\Entity]
 #[ORM\Table(name: 'notification')]
+// Partial index for the unread-count query that runs on every dashboard load.
+#[ORM\Index(name: 'idx_notification_recipient_unread', columns: ['recipient_id'], options: ['where' => '(read_at IS NULL)'])]
 class Notification
 {
     #[ORM\Id]
