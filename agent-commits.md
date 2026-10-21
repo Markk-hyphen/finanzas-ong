@@ -1,5 +1,34 @@
 # Registro de commits del agente
 
+## [ACTIVITY-REVIEW] Revisión post-Fase 2: push privado de Mercure, aislamiento del hub, schema y aviso auto_timeout (lote de 5 commits)
+**Hash:** `b78867d..e2d17d2` (`b78867d`, `4b18990`, `9f626bc`, `1bc0c3f`, `e2d17d2`)
+**Rama:** `main`
+**Fecha:** 2026-10-21
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `backend/frankenphp/Caddyfile` | modificado | Agrega `subscriber_jwt` al hub Mercure (misma clave que `publisher_jwt`) (`b78867d`) |
+| `backend/src/Application/NotificationPublisher.php` | modificado | Cola de pushes publicada en `kernel.terminate`/`console.terminate`; los fallos del hub se loguean en vez de lanzar la excepción (`4b18990`) |
+| `backend/src/Application/ActivityRecorder.php` | modificado | Encola la notificación en lugar de hacer flush + publish en medio de la transacción (`4b18990`) |
+| `backend/src/Entity/Notification.php` | modificado | Declara `idx_notification_recipient_unread` (parcial, `WHERE read_at IS NULL`) con `#[ORM\Index]` (`9f626bc`) |
+| `backend/src/Domain/Model/ActivityEvent.php` | modificado | Nuevo evento `payment_created_auto_timeout` (`1bc0c3f`) |
+| `backend/src/Controller/PaymentController.php` | modificado | Elige el evento de alta según el modo (`optimistic` / `auto_timeout` / `required`) (`1bc0c3f`) |
+| `backend/src/Domain/Service/NotificationTargets.php` | modificado | `payment_created_auto_timeout` → receptor (`1bc0c3f`) |
+| `backend/tests/Domain/NotificationTargetsTest.php` | modificado | Tests para `auto_timeout` (avisa al receptor) y `required` (no avisa a nadie) (`1bc0c3f`) |
+| `frontend/src/js/notifications.js` | modificado | Texto para el evento nuevo (`1bc0c3f`) |
+| `docs/fase2-eventos-notificaciones.md` | modificado | Evento nuevo en las tablas, requisito de `subscriber_jwt`, publicación diferida, verificación corregida y §5 "Pendientes conocidos" (`e2d17d2`) |
+
+### Justificación
+La Fase 2 se implementó con Sonnet 5 en esfuerzo medio, no con Opus como quería Marcos, así que se revisó el diff completo de `df1592a` con Opus 5.5. Salieron tres bugs reales y una brecha de diseño.
+
+- **El push en vivo nunca funcionó.** El hub tenía `anonymous` + `publisher_jwt` pero no `subscriber_jwt`, así que no autorizaba a ningún suscriptor para updates privados. Se probó con `curl` antes del arreglo: un update público llegaba a todos y uno privado no le llegaba a nadie, ni siquiera a quien tenía un token emitido igual que en la app. Esto explica el "SSE no confirmado" que había quedado anotado en la Fase 2, que entonces se había atribuido al entorno. Se usa la misma clave que el publisher porque MercureBundle firma ambos tokens con el único `MERCURE_JWT_SECRET`; así no hace falta una variable nueva en los `.env` del VPS. **El Caddyfile de Oliva (`~/app`) tiene el mismo hueco**; queda como deuda de Oliva, no se tocó allá.
+- **Un hub caído tiraba abajo operaciones de dinero.** `Hub::publish` lanza `RuntimeException`, y se llamaba dentro de la transacción del ledger y con el lock `PESSIMISTIC_WRITE` del proyecto tomado. Si el hub estaba caído, fallaban con 500 el alta de pagos optimistic, los retiros y los rechazos, y se abortaba la autoconfirmación del scheduler. Si estaba lento, retenía el lock. La alternativa de publicar en `postFlush` se descartó porque ese evento también corre dentro de la transacción. Si se revierte la escritura, el push ya enviado es inofensivo: solo hace que el cliente vuelva a leer la DB, que es la fuente de verdad. Verificado con un hub inalcanzable: se loguea un warning y no se lanza la excepción.
+- **La CI se rompía.** La migración creaba el índice parcial pero la entidad no lo declaraba, así que `doctrine:schema:validate` (que corre en CI) fallaba. Se resolvió con el mismo patrón que el índice único de la Fase 0: declararlo en el mapping.
+- **Brecha de diseño en `auto_timeout` (aprobada por Marcos).** En ese modo el silencio hasta el plazo equivale a aceptación, pero el receptor solo se enteraba con `payment_auto_confirmed`, cuando ya no podía objetar. Ahora se le avisa al crearse el pago. El modo `required` sigue sin notificar porque el pendiente en el dashboard ya le pide acción al receptor.
+
+Verificado de punta a punta en dev: pago `auto_timeout` real (proyecto 44, socios 95 → 94) y retiro posterior. El receptor recibió por SSE los dos eventos y los ve en `GET /api/notifications`. Pasan los 71 tests y `schema:validate`. Los menores (reconexión del `EventSource`, suscripción que sigue abierta al cambiar de usuario sin logout, `confirm` sin lock, que viene de antes de la Fase 2) quedan anotados en el doc §5, sin urgencia.
+
 ## [ACTIVITY] Fase 2 del upgrade: eventos de dominio, audit log y notificaciones in-app
 **Hash:** `df1592a`
 **Rama:** `main`
