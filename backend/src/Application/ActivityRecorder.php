@@ -54,11 +54,7 @@ class ActivityRecorder
 
             $notification = new Notification($recipient, $eventType, $movement, $payload);
             $this->em->persist($notification);
-            // Flush now: need the generated id before publishing, and this
-            // runs inside the caller's own transaction either way.
-            $this->em->flush();
-
-            $this->publisher->publishCreated($recipientId, (int) $notification->getId(), $eventType);
+            $this->publisher->queue($notification);
         }
     }
 }
