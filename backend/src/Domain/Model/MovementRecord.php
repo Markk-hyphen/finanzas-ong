@@ -15,5 +15,9 @@ final class MovementRecord
         public readonly ?string $amount,
         public readonly ?string $batchId,
         public readonly ?int    $cancelsMovementId,
+        // Only needed by CancellationPolicy; balance calculation ignores them.
+        public readonly ?\DateTimeImmutable $createdAt = null,
+        public readonly ?int    $createdById = null,
+        public readonly ?string $confirmedVia = null, // receiver | optimistic | timeout
     ) {}
 }
