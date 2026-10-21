@@ -293,3 +293,19 @@ completo en `docs/fase2-eventos-notificaciones.md`.
   push opcional por Mercure (privado, por socio). La DB es la fuente de verdad;
   el push es solo para no depender de refrescar a mano.
 - No reemplaza ni relaja ninguna regla existente — es puramente aditivo.
+
+### E3 — Entrega de notificaciones por mail y Telegram (2026-10-21)
+
+**Motivo:** la notificación in-app de E2 solo la ve quien abre la app; si el
+receptor no entra antes del plazo, el aviso no sirvió. Diseño completo en
+`docs/fase3-mail-telegram.md`.
+
+- Cada notificación de E2 se entrega además por **mail** (obligatorio para todo
+  socio activo, sin opt-out) y por **Telegram** si el socio lo vinculó. Los dos
+  son capacidad de instancia.
+- Los mensajes **no llevan montos ni contrapartes**: solo el tipo de aviso, el
+  proyecto y un link a la app.
+- La entrega usa una bandeja de salida durable (`notification_delivery`),
+  fuera de la transacción del ledger, con reintentos por cron. Un proveedor
+  caído nunca afecta a un pago.
+- Puramente aditivo: no cambia quién recibe avisos ni ninguna regla del ledger.
