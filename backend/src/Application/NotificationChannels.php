@@ -35,6 +35,9 @@ class NotificationChannels
 
     public function telegramBotToken(): string
     {
-        return (string) (new Dsn($this->telegramDsn))->getUser();
+        // A bot token is "<id>:<secret>", so the DSN parser splits it into user and password
+        $dsn = new Dsn($this->telegramDsn);
+
+        return $dsn->getUser().':'.$dsn->getPassword();
     }
 }
