@@ -1,5 +1,64 @@
 # Registro de commits del agente
 
+## [UI] Upgrade visual: design system propio, layout desktop y flujos más fluidos
+**Hash:** `a77b0dd`
+**Rama:** `feat/ui-upgrade`
+**Fecha:** 2026-10-21
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `frontend/src/css/tokens.css` | nuevo | Tokens de color/tipografía/radios/movimiento; tema claro y oscuro (auto por SO o forzado con `data-theme`) |
+| `frontend/src/css/base.css` | nuevo | Reset, tipografía, foco visible, animaciones de entrada, `prefers-reduced-motion` |
+| `frontend/src/css/components.css` | nuevo | Botones (con estado loading), cards, chips, avatares, inputs, input de monto, option cards, segmented, combobox, callouts, listas, skeletons, menú, diálogo, toasts |
+| `frontend/src/css/shell.css` | nuevo | Sidebar desktop (≥1024px), topbar con título iOS-style en mobile, migas en desktop, action bar inferior, panel de notificaciones |
+| `frontend/src/css/views.css` | nuevo | Layout de cada vista: grilla de proyectos, dashboard en 2 columnas, formularios con aside, login partido |
+| `frontend/src/style.css` | modificado | Ahora solo importa Inter + las hojas de `css/` |
+| `frontend/src/js/ui/icons.js` | nuevo | Set de íconos SVG inline (reemplaza emojis) |
+| `frontend/src/js/ui/format.js` | nuevo | Formato de montos/fechas/tiempo relativo, `parseAmount` (acepta es-AR), avatares con color estable por persona |
+| `frontend/src/js/ui/feedback.js` | nuevo | Toasts, `confirmDialog` sobre `<dialog>` (bottom sheet en mobile), menú popover, `withLoading` |
+| `frontend/src/js/ui/amount.js` | nuevo | Input de monto grande compartido, con eco de cómo se interpretó lo tipeado |
+| `frontend/src/js/shell.js` | nuevo | Tema, sidebar con proyectos (cacheados), menú de avatar, logout |
+| `frontend/src/js/nav.js` | modificado | `setNav` con migas; `watchPageTitle`; el logout pasa a `shell.js` |
+| `frontend/src/main.js` | modificado | Sin Bootstrap; skeletons por vista; error con reintentar; cierra menús/panel al navegar |
+| `frontend/index.html` | modificado | Shell nuevo (sidebar + topbar + toasts), favicon SVG, tema antes del primer paint, se saca `maximum-scale` (bloqueaba el zoom) |
+| `frontend/src/js/notifications.js` | modificado | Panel nuevo: íconos por evento, tiempo relativo, click marca leída y lleva al proyecto, "Marcar todas" |
+| `frontend/src/js/api.js` | modificado | `getMembers` (endpoint existente `/projects/{id}/members`) |
+| `frontend/src/js/views/dashboard.js` | modificado | Stats, pendientes, movimientos por día con tabs Míos/Todo el proyecto y filtros, balances con barras divergentes y %, reglas del proyecto, acciones en menú |
+| `frontend/src/js/views/expense.js` | modificado | Monto grande, vista previa del reparto por socio, combobox de materiales con teclado |
+| `frontend/src/js/views/payment.js` | modificado | Preview automático (sin botón), "Todo lo que debo"/"La mitad", explicación según modo |
+| `frontend/src/js/views/projects.js` | modificado | Grilla de cards con balance cargado progresivamente y total general |
+| `frontend/src/js/views/login.js` | modificado | Login partido (panel de marca + form), mostrar/ocultar contraseña |
+| `frontend/src/js/views/settings.js` | modificado | Modos como option cards, plazos con unidad, plazo de objeción atenuado en `required` |
+| `frontend/src/js/views/account.js` | modificado | Perfil, selector de tema, canales con estado, cerrar sesión (en mobile no tenía lugar) |
+| `frontend/package.json`, `frontend/yarn.lock` | modificado | `@fontsource-variable/inter` |
+
+### Justificación
+El frontend era Bootstrap por defecto en una columna fija de 600px: bien en el teléfono, un teléfono estirado en desktop. Marcos delegó el upgrade entero (declaró no tener criterio de UI), así que las decisiones son del agente:
+
+- **Design system propio en vez de seguir con Bootstrap:** había que reescribir todas las plantillas igual; tunear Bootstrap para que no parezca Bootstrap cuesta más que ~1500 líneas de CSS con tokens. El modo oscuro sale gratis de los tokens. Se descartó meter un framework (React/Vue): el problema era visual, no de arquitectura, y el vanilla JS + Vite actual alcanza.
+- **sweetalert2 → `<dialog>` nativo:** se podía tematizar, pero quedaba distinto del resto; un diálogo propio de ~80 líneas hereda los tokens y en mobile se vuelve bottom sheet. Las dependencias (Bootstrap, sweetalert2) siguen en `package.json` porque es archivo compartido con Oliva; simplemente ya no se importan. El JS bajó a 81 KB.
+- **Inter self-hosted (`@fontsource`) y no Google Fonts:** sin request a terceros. El diff de `package.json` se dejó en una sola línea (yarn lo reordenaba entero) para no generar conflictos en el próximo sync con Oliva.
+- **Más datos sin tocar el backend:** "Todo el proyecto" usa `/overview` y los % usan `/members`, endpoints que ya existían y que un socio puede leer (`ProjectGuard::canView`). Frontend-only a propósito: cero riesgo sobre el dominio.
+- **`parseAmount`:** con `type=number` el teclado y la coma se pelean en es-AR. Ahora el input es texto, acepta "1.500,50" y "1500.50", un "1.500" se lee como mil quinientos (nadie en Argentina quiere decir 1,5 así) y lo ambiguo ("1,234") se rechaza. Para que nunca se mande un monto distinto al pensado, debajo siempre se ve cómo se interpretó. Probado con 20 casos.
+- **Bugs de UI encontrados en el camino:** la navbar con títulos largos pasaba a 2 renglones y tapaba el contenido; el hero quedaba cortado bajo la navbar; la cantidad se mostraba cruda ("× 10.000" por 10); navegar con el panel de notificaciones abierto dejaba el fondo oscuro puesto (encontrado y corregido antes del commit).
+- **Impacto en el checklist de testeo manual:** punto 16 → ahora la notificación se marca leída al tocarla (más "Marcar todas").
+
+Verificado E2E con Playwright (pago de Tomás, confirmación, gasto con material por teclado + deshacer, push en vivo) en mobile/tablet/desktop y claro/oscuro, y `yarn build` OK. Proyecto demo 48 creado en la DB de dev para diseñar con datos reales.
+
+## [FIX] El push en vivo de notificaciones nunca conectaba
+**Hash:** `c559f58`
+**Rama:** `feat/ui-upgrade`
+**Fecha:** 2026-10-21
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `frontend/src/js/notifications.js` | modificado | Agrega a la URL del `EventSource` los `topic` que salen del claim `mercure.subscribe` del token de suscripción |
+
+### Justificación
+Encontrado durante el upgrade visual (no estaba previsto): el `EventSource` abría el hub solo con `authorization`, sin ningún `topic`, y Mercure responde 400 a una suscripción sin topics. El push en vivo de la Fase 2 nunca conectó; el polling de 30 s lo enmascaraba, así que las notificaciones llegaban con hasta medio minuto de demora (afecta el punto 14 del checklist). Se toma el topic del propio token en vez de hardcodear el formato de la URL o agregar un endpoint: el backend ya decide a qué puede suscribirse cada socio y el front solo lo lee. Commit separado del upgrade para poder revisarlo o revertirlo solo. Verificado: el badge aparece ~1 s después del evento.
+
 ## [DELIVERY] Fase 3 del upgrade: avisos por mail (obligatorio) y Telegram (opt-in)
 **Hash:** `b38b5ef..85fe21c` (rama, 7 commits) + merge `9658d2d` + fix `2d71dda` + este commit (imagen fijada, doc)
 **Rama:** `feat/notification-delivery` → `main`
