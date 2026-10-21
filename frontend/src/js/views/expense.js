@@ -103,12 +103,20 @@ export async function renderExpense(el, projectId) {
     const list = el.querySelector('#material-suggestions');
     const stateIcon = el.querySelector('#material-state');
     let results = [], active = -1, timer = null, seq = 0;
+    // Same idea as the backend's Material::normalize (lowercase, no accents)
+    const norm = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    // Options shown: matches, plus "create" when nothing matches exactly
+    const options = (q) => results.some(m => norm(m.name) === norm(q))
+        ? results
+        : [...results, { create: true, name: q }];
 
     const close = () => { list.classList.add('hidden'); input.setAttribute('aria-expanded', 'false'); active = -1; };
     const pick = (m) => {
         input.value = m.name;
-        hidden.value = m.id;
-        stateIcon.innerHTML = `<span class="text-pos">${icon('checkCircle')}</span>`;
+        hidden.value = m.create ? '' : m.id;
+        stateIcon.innerHTML = m.create
+            ? `<span class="chip chip-brand">nuevo</span>`
+            : `<span class="text-pos">${icon('checkCircle')}</span>`;
         close();
         el.querySelector('#f-qty').focus();
     };
@@ -118,17 +126,15 @@ export async function renderExpense(el, projectId) {
         return esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + q.length)) + '</mark>' + esc(text.slice(i + q.length));
     };
     const drawList = (q) => {
-        if (!results.length) {
-            list.innerHTML = `<div class="combo-option faint" aria-disabled="true">Sin resultados para “${esc(q)}”</div>`;
-        } else {
-            list.innerHTML = results.map((m, i) =>
-                `<button type="button" class="combo-option" role="option" id="mat-${i}" data-i="${i}" aria-selected="${i === active}">${icon('package')}<span>${highlight(m.name, q)}</span></button>`
-            ).join('');
-            list.querySelectorAll('[data-i]').forEach(b => b.addEventListener('mousedown', e => {
-                e.preventDefault(); // keep focus in the input
-                pick(results[Number(b.dataset.i)]);
-            }));
-        }
+        const opts = options(q);
+        list.innerHTML = opts.map((m, i) => m.create
+            ? `<button type="button" class="combo-option combo-create" role="option" id="mat-${i}" data-i="${i}" aria-selected="${i === active}">${icon('plus')}<span>Crear “<strong>${esc(m.name)}</strong>”</span></button>`
+            : `<button type="button" class="combo-option" role="option" id="mat-${i}" data-i="${i}" aria-selected="${i === active}">${icon('package')}<span>${highlight(m.name, q)}</span></button>`
+        ).join('');
+        list.querySelectorAll('[data-i]').forEach(b => b.addEventListener('mousedown', e => {
+            e.preventDefault(); // keep focus in the input
+            pick(opts[Number(b.dataset.i)]);
+        }));
         list.classList.remove('hidden');
         input.setAttribute('aria-expanded', 'true');
         input.setAttribute('aria-activedescendant', active >= 0 ? `mat-${active}` : '');
@@ -145,20 +151,21 @@ export async function renderExpense(el, projectId) {
             try {
                 const r = await api.getMaterials(q);
                 if (mine !== seq) return;
-                results = r; active = r.length ? 0 : -1;
+                results = r; active = 0;
                 drawList(q);
             } catch { close(); }
         }, 220);
     });
     input.addEventListener('keydown', e => {
-        if (list.classList.contains('hidden') || !results.length) return;
+        if (list.classList.contains('hidden')) return;
+        const opts = options(input.value.trim());
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
-            active = (active + (e.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length;
+            active = (active + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
             drawList(input.value.trim());
         } else if (e.key === 'Enter' && active >= 0) {
             e.preventDefault();
-            pick(results[active]);
+            pick(opts[active]);
         } else if (e.key === 'Escape') {
             close();
         }
@@ -183,19 +190,19 @@ export async function renderExpense(el, projectId) {
             showErr(err, 'La cantidad tiene que ser un número mayor a cero.');
             return;
         }
-        if (input.value.trim() && !hidden.value) {
-            showErr(err, 'Elegí un material de la lista, o dejá el campo vacío.');
-            input.focus();
-            return;
-        }
-
         const body = { amount };
-        if (hidden.value) body.materialId = parseInt(hidden.value, 10);
-        if (qtyRaw)       body.quantity   = qtyRaw;
+        if (qtyRaw) body.quantity = qtyRaw;
 
         btn.disabled = true;
         btn.classList.add('is-loading');
         try {
+            // A typed material not picked from the list is created (or the
+            // existing one with the same normalized name is reused) instead of
+            // being silently dropped, as agreed in the original design.
+            const typed = input.value.trim();
+            if (hidden.value) body.materialId = parseInt(hidden.value, 10);
+            else if (typed) body.materialId = (await api.createMaterial(typed)).id;
+
             const res = await api.createExpense(projectId, body);
             if (res.warning) toast('Gasto registrado', { text: res.warning, type: 'warning', duration: 6000 });
             else toast('Gasto registrado', { text: `${fmt(amount)} repartidos entre ${members.length || 'los'} socios.` });

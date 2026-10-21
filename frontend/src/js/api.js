@@ -69,6 +69,8 @@ export const api = {
     getCapabilities: ()         => request('GET',  '/instance/capabilities'),
     updateSettings: (id, body)  => request('PATCH', `/projects/${id}/settings`, body),
     getMaterials:   (q)         => request('GET',  `/materials?q=${encodeURIComponent(q)}`),
+    // Idempotent: returns the existing material when the normalized name already exists
+    createMaterial: (name)      => request('POST', '/materials', { name }),
     getNotifications:        ()   => request('GET',  '/notifications'),
     markNotificationRead:    (id) => request('POST', `/notifications/${id}/read`),
     getNotificationsToken:   ()   => request('GET',  '/notifications/subscription-token'),

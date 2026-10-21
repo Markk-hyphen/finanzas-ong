@@ -782,3 +782,6 @@
 @keyframes toast-out {
   to { opacity: 0; transform: translateY(8px) scale(0.97); }
 }
+.combo-create { color: var(--brand-text); }
+.combo-create svg { color: var(--brand-text); }
+.combo-create strong { font-weight: 600; }
