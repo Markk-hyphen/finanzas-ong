@@ -17,6 +17,8 @@ final class ActivityEvent
     public const PAYMENT_CREATED  = 'payment_created';
     // Optimistic payments are born confirmed; this is the one that needs a nudge.
     public const PAYMENT_CREATED_OPTIMISTIC = 'payment_created_optimistic';
+    // Pending, but silence until the deadline means acceptance.
+    public const PAYMENT_CREATED_AUTO_TIMEOUT = 'payment_created_auto_timeout';
     public const PAYMENT_CONFIRMED          = 'payment_confirmed';
     public const PAYMENT_AUTO_CONFIRMED     = 'payment_auto_confirmed';
     public const PAYMENT_WITHDRAWN          = 'payment_withdrawn';

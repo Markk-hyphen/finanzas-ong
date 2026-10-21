@@ -106,9 +106,11 @@ class PaymentController extends AbstractController
             }
             $this->em->persist($payment);
 
-            $eventType = $settings->confirmationMode === ProjectSettings::MODE_OPTIMISTIC
-                ? ActivityEvent::PAYMENT_CREATED_OPTIMISTIC
-                : ActivityEvent::PAYMENT_CREATED;
+            $eventType = match ($settings->confirmationMode) {
+                ProjectSettings::MODE_OPTIMISTIC    => ActivityEvent::PAYMENT_CREATED_OPTIMISTIC,
+                ProjectSettings::MODE_AUTO_TIMEOUT  => ActivityEvent::PAYMENT_CREATED_AUTO_TIMEOUT,
+                default                             => ActivityEvent::PAYMENT_CREATED,
+            };
             $this->activityRecorder->record($project, $eventType, $payment, $member);
         }
 

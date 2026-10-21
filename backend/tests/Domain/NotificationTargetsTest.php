@@ -27,6 +27,19 @@ class NotificationTargetsTest extends TestCase
         $this->assertSame([self::RECEIVER], $ids);
     }
 
+    public function testAutoTimeoutPaymentNotifiesTheReceiverAtCreation(): void
+    {
+        $ids = $this->targets->for(ActivityEvent::PAYMENT_CREATED_AUTO_TIMEOUT, self::PAYER, self::RECEIVER);
+
+        $this->assertSame([self::RECEIVER], $ids);
+    }
+
+    public function testRequiredModePaymentNotifiesNobody(): void
+    {
+        // The pending row on the dashboard already asks the receiver to act.
+        $this->assertSame([], $this->targets->for(ActivityEvent::PAYMENT_CREATED, self::PAYER, self::RECEIVER));
+    }
+
     public function testAutoConfirmationNotifiesBothSides(): void
     {
         $ids = $this->targets->for(ActivityEvent::PAYMENT_AUTO_CONFIRMED, self::PAYER, self::RECEIVER);

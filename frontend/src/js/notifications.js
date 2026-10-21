@@ -3,7 +3,8 @@ import { esc } from './html.js';
 
 const LABELS = {
     payment_created_optimistic: 'Tenés un pago nuevo (ya confirmado) — podés rechazarlo si no te llegó.',
-    payment_auto_confirmed:     'Un pago pendiente se confirmó solo: venció el plazo sin objeciones.',
+    payment_created_auto_timeout: 'Tenés un pago pendiente: si no lo rechazás antes del plazo, se confirma solo.',
+    payment_auto_confirmed:    'Un pago pendiente se confirmó solo: venció el plazo sin objeciones.',
     payment_withdrawn:          'El pagador retiró un pago pendiente que esperabas.',
     payment_rejected:           'Tu pago fue rechazado por el receptor.',
 };

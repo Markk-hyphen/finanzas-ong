@@ -20,6 +20,8 @@ final class NotificationTargets
         $ids = match ($eventType) {
             // Born confirmed: the receiver needs to know it exists and can still be rejected.
             ActivityEvent::PAYMENT_CREATED_OPTIMISTIC => [$toMemberId],
+            // Silence until the deadline confirms it: the receiver must hear about it while they can still object.
+            ActivityEvent::PAYMENT_CREATED_AUTO_TIMEOUT => [$toMemberId],
             // The objection window closed in silence: both sides should know it's final now.
             ActivityEvent::PAYMENT_AUTO_CONFIRMED => [$fromMemberId, $toMemberId],
             // The payer took back a pending share: the receiver expected that money.
