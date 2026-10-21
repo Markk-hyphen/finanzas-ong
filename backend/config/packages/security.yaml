@@ -34,8 +34,8 @@ security:
     access_control:
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
         # QA-only tooling (login-as, member discovery): public so testing needs no
-        # prior login. Every action in QaController 404s in prod
-        # (kernel.environment === 'prod'), so this is inert there.
+        # prior login. Every action in QaController 404s outside its allowlist
+        # of environments (dev, test, staging), so this is inert in prod.
         - { path: ^/api/qa, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
