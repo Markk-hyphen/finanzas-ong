@@ -1,5 +1,50 @@
 # Registro de commits del agente
 
+## [HARDENING] Fase 0 del upgrade: correctitud del ledger + seguridad de código (lote de 11 commits)
+**Hash:** merge `73f633e` (commits `d5085af`..`bae0825`)
+**Rama:** `feat/hardening` → mergeada a `main`
+**Fecha:** 2026-10-21
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `backend/src/Domain/Service/BalanceCalculator.php` | modificado | `calculate(includePending: true)` = balance proyectado (pendientes vigentes reservados) |
+| `backend/src/Domain/Service/DecimalParser.php` | nuevo | Parseo estricto de decimales (sin exponentes/signos/decimales de más, cabe en la columna) |
+| `backend/src/Domain/Service/ProjectGuard.php` | modificado | `canView()`: admin o miembro del proyecto |
+| `backend/src/Controller/PaymentController.php` | modificado | Valida contra balance proyectado, transacción + lock del proyecto, `DecimalParser`, `canView` en batch, confirm ignora anulados |
+| `backend/src/Controller/ExpenseController.php` | modificado | Transacción + lock del proyecto, `DecimalParser` para amount/quantity |
+| `backend/src/Controller/MovementController.php` | modificado | Cancel en transacción + lock; 409 ante carrera; batch saltea filas ya anuladas |
+| `backend/src/Controller/ProjectController.php` | modificado | `canView` en overview/members, pendientes sin anulados, `myProjectedBalance`, `DecimalParser` en percentage |
+| `backend/src/Controller/MemberController.php` | modificado | `PATCH /me` exige `currentPassword` para cambiar email/password |
+| `backend/src/Controller/QaController.php` | modificado | QA endpoints por allowlist de entornos (dev/test/staging) |
+| `backend/src/Entity/Movement.php` | modificado | `UniqueConstraint` sobre `cancels_movement_id` |
+| `backend/migrations/Version20261021125436.php` | nuevo | Índice único de anulación; aborta si hay duplicados (no borra ledger) |
+| `backend/src/Security/MemberUserChecker.php` | nuevo | Bloquea socios `active=false` en login y en cada request JWT |
+| `backend/src/Security/LoginFailureHandler.php` | nuevo | 429 para login throttleado, delega el resto a Lexik |
+| `backend/config/packages/security.yaml` | modificado | `user_checker`, `login_throttling`, failure handler propio |
+| `backend/config/packages/framework.yaml` | modificado | `trusted_proxies` (default `PRIVATE_SUBNETS` como parámetro) |
+| `backend/composer.json` / `composer.lock` | modificado | `symfony/rate-limiter`; http-foundation y yaml 7.4.13 → 7.4.21 (CVEs) |
+| `backend/tests/Domain/BalanceCalculatorTest.php` | modificado | Tests del balance proyectado |
+| `backend/tests/Domain/DecimalParserTest.php` | nuevo | Tests del parser |
+| `frontend/src/js/html.js` | nuevo | Helper `esc()` |
+| `frontend/src/main.js`, `frontend/src/js/views/*.js` | modificado | Escape de todo dato del servidor; botón Pagar usa el balance proyectado; step de cantidad |
+| `frontend/src/js/api.js` | modificado | Muestra mensajes de estado de cuenta (desactivada / throttling) en el login |
+| `frontend/Caddyfile` | modificado | `trusted_proxies static private_ranges` |
+| `api/members/05-me-update.bru`, `api/README.md` | modificado | Documentan `currentPassword` |
+
+### Justificación
+Auditoría de código pedida por Marcos para aprovechar una ventana con modelo fuerte (seguridad *de código*, no de infra: rotar PAT/JWT quedó descartado por él). Todo hallazgo se reprodujo en vivo contra el stack dev antes de arreglarlo y se re-verificó después con el mismo script; las imágenes prod compilan y cargan la config nueva.
+
+Las decisiones con *por qué* no obvio:
+- **Doble pago (el bug grave):** "pendiente = invisible" valía para el balance mostrado **y** para la validación, así que un deudor podía pagar dos veces la misma deuda mientras el receptor no confirmaba (verificado: debía 50, pagó 50+50, terminó +50). Se separan dos conceptos: balance mostrado (solo confirmado, como pide el MANIFIESTO) y balance proyectado (pendientes reservados) para validar. Es además prerequisito de los modos de confirmación de la Fase 1. El lock pesimista sobre la fila del proyecto cubre la variante concurrente; se extendió a gastos y anulaciones para que toda escritura al ledger de un proyecto quede serializada.
+- **Rate-limit + trusted_proxies van juntos:** detrás del reverse proxy todas las requests llegan con la IP del proxy. Sin `trusted_proxies` el limitador global por IP (25/min) sería un balde compartido: 25 fallos de cualquiera bloquearían el login de todos, o sea que el fix habría creado un DoS nuevo. Se configura en las dos puntas (Symfony y Caddy del front). El default va como parámetro y no en `.env` porque en worker mode un env faltante daba 500.
+- **Migración de anulación única:** aborta si encuentra duplicados en vez de borrarlos — el ledger es append-only y limpiar es decisión humana.
+- **XSS:** el CSP de prod (`script-src 'self'`) ya bloqueaba la ejecución, así que en prod era inyección de HTML; se arregla en origen igual (el CSP es segunda línea). El API sigue aceptando cualquier nombre: el arreglo es escapar al pintar, no prohibir caracteres.
+- **CVEs:** update acotado a los dos paquetes afectados; el update general de `symfony/*` arrastraba mercure 0.x (saltos potencialmente incompatibles) y se descartó dentro de un fix de seguridad.
+- **Decimales:** `"10.999"` antes se truncaba en silencio; ahora es 400. Con plata se rechaza, no se redondea.
+
+Fuera de alcance, visto y no verificado: el CSP de prod (`style-src 'self'`) probablemente bloquea los `style="..."` inline del frontend (detalle visual preexistente).
+
 ## [API-COMPLETION] feat: environment local para Bruno + fix de parseo en prod.bru
 **Hash:** `f4df2dd`
 **Rama:** `feat/api-completion`
