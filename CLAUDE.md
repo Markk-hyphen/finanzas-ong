@@ -4,6 +4,17 @@ Framework base para construir webapps: backend Symfony (FrankenPHP), frontend Vi
 
 Este `CLAUDE.md` es la guía operativa para agentes que trabajen sobre proyectos construidos con Oliva. La documentación humana (stack, getting started) está en `README.md`.
 
+## Versiones, actualizaciones y forks
+
+Oliva se versiona (`OLIVA_VERSION`, tags `vX.Y.Z`) y las apps hechas con Oliva viven en **repos separados** (finanzas-ong, crypto-pulse) con un remote `oliva-upstream` que apunta acá. El sistema completo está en **`docs/oliva/actualizaciones.md`**; en corto:
+
+- **Mantener Oliva vivo** (acá): `scripts/oliva/deps.sh due` en cada inicio de sesión; cuando dice TOCA → `deps.sh report` (EOL, imágenes, composer, yarn, actions, CVEs) → `deps.sh update` (bump dentro de rangos + `verify.sh` + commit en `chore/deps-<fecha>`) → saltos de major/imágenes base a mano, uno por commit → notas en `docs/oliva/UPGRADING.md` → `scripts/oliva/release.sh X.Y.Z` → push de `main` + tag.
+- **Bajarlo a cada fork** (en el fork): `scripts/oliva/sync.sh check` en cada inicio de sesión; si está atrás → `sync.sh start` → resolver → `sync.sh locks` → commit → `sync.sh verify` → merge local a `main`.
+- **Propiedad de archivos:** `scripts/oliva/owned-paths.txt`. Un fork no edita los archivos de Oliva; si necesita otra cosa, se agrega a Oliva como opción y baja a todos.
+- **Al cambiar algo que un fork tenga que acompañar** (renombre, variable nueva, paso manual), escribirlo en `docs/oliva/UPGRADING.md` en el mismo commit — es lo que `sync.sh` le muestra al fork. `release.sh` no publica sin esa sección.
+
+**Por qué importa:** antes de 1.1.0 nada avisaba que un fork había quedado atrás, y un fork con mes y medio de divergencia costó 19 conflictos (`add/add` del esqueleto Symfony, que hoy ya tiene ancestro común en todos los forks).
+
 ## Comandos principales
 
 ### Desarrollo
@@ -16,7 +27,7 @@ El `docker-compose.override.yml` se aplica automáticamente: monta el código fu
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
-Usa imágenes compiladas (`app-backend-prod:1.0`, `app-frontend-prod:1.0`). El frontend queda expuesto en `:80`.
+Usa imágenes compiladas (`<project>-backend:prod`, `<project>-frontend:prod`; ver "Nombres de imagen" abajo). El frontend queda expuesto en `:80`.
 
 ### Build de producción
 ```bash
@@ -27,6 +38,9 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml build
 - `backend/` — Symfony con FrankenPHP (Doctrine ORM/Migrations, pgvector, Mercure, Messenger)
 - `frontend/` — Vite (Node), incluye demo de Mercure en vivo (`src/js/live.js`, sección "Live" de `index.html`)
 - `docs/concepts.md` — glosario técnico acumulativo (pgvector, RabbitMQ, AMQP, etc.)
+- `docs/oliva/` — docs **del framework** que bajan a cada fork: `actualizaciones.md` (sistema de updates) y `UPGRADING.md` (notas por versión)
+- `scripts/oliva/` — herramientas de mantenimiento y sync (`deps.sh`, `sync.sh`, `verify.sh`, `release.sh`, `owned-paths.txt`)
+- `OLIVA_VERSION` — versión del framework sobre la que está el checkout
 - `docs/examples/` — esqueletos de referencia (`*.php.example`) no registrados como código de la app
 - `.env`, `.env.backend`, `.env.frontend` — variables por entorno
 - `.env.prod` — variables de producción
@@ -45,9 +59,32 @@ La base de datos usa la imagen `pgvector/pgvector:pg${POSTGRES_VERSION}` — es 
 
 ### Deuda conocida: `worker` no tiene definición de producción
 
-`docker-compose.override.yml` (dev) define `worker` con `bin/console messenger:consume`, pero no hay equivalente en `docker-compose.prod.yml` ni en el `docker-compose.yml` base. Si una app usa RabbitMQ/Messenger en serio, antes de ir a producción hay que agregar un servicio `worker` (imagen `app-backend-prod:1.0`, comando `messenger:consume`, sin exponer puertos). `scheduler` sí está cubierto en prod (usa `app-backend-prod:1.0` / target `frankenphp_prod`, igual que `backend`).
+`docker-compose.override.yml` (dev) define `worker` con `bin/console messenger:consume`, pero no hay equivalente en `docker-compose.prod.yml` ni en el `docker-compose.yml` base. Si una app usa RabbitMQ/Messenger en serio, antes de ir a producción hay que agregar un servicio `worker` (imagen `${COMPOSE_PROJECT_NAME}-backend:prod`, comando `messenger:consume`, sin exponer puertos). `scheduler` sí está cubierto en prod (usa `${COMPOSE_PROJECT_NAME}-backend:prod` / target `frankenphp_prod`, igual que `backend`).
 
 Mercure (`/.well-known/mercure`) está siempre activo vía el hub de Caddy (`backend/frankenphp/Caddyfile`); la demo de canvas en vivo (`backend/public/live.php` + `frontend/src/js/live.js`) muestra que funciona out of the box.
+
+### Aislamiento por app: todo cuelga del project name
+
+Varias apps Oliva conviven en el mismo host (en dev, tu máquina; en prod, el VPS). Todo lo que Compose crea se deriva del **project name** (nombre del directorio, `-p <app>` o `COMPOSE_PROJECT_NAME`), y nada se nombra fijo:
+
+| Recurso | Nombre | Ejemplo (`-p ong`) |
+|---|---|---|
+| Imágenes | `<project>-<servicio>:<entorno>` (`dev`/`prod`/`staging`) | `ong-backend:prod`, `ong-staging-frontend:staging` |
+| Red privada | `<project>_app_network` | `ong_app_network` |
+| Volúmenes | `<project>_<volumen>` | `ong_db_data` |
+| Alias en `proxy_net` | `<project>-frontend` | `ong-frontend` |
+
+**Regla para forks:** no introducir nombres globales (`image:` con tag fijo, `name:` en redes/volúmenes, `container_name:`). Un nombre fijo es global al daemon Docker y choca en silencio con la otra app: hasta Oliva 1.1 el tag `app-backend-dev:1.0` hacía que el build de finanzas-ong pisara la imagen de CMP (y viceversa), y la red `app_network` era la misma para las dos.
+
+**Guard de colisión en los scripts** (`scripts/lib/project-guard.sh`, sourceado por `deploy*.sh`/`down*.sh`): antes de `down`/`up`, aborta si el project ya tiene containers levantados desde **otro** directorio (label `com.docker.compose.project.working_dir`, que Compose pone solo), y rechaza nombres de app que terminen en `-staging` (sufijo reservado). Lo que el guard **no** cubre: `infra/scripts/provision-postgres.sh` se sigue tipeando a mano y puede driftear del project name. Convención: `<app>_db`/`<app>_user` con el mismo `<app>` que el `-p`.
+
+### Deuda conocida: environments de Bruno commiteados se ensucian solos al testear
+
+La convención de API testing con Bruno (ver `README.md` de la collection `api/` de cada fork, heredada de este patrón) commitea `environments/{staging,prod}.bru` con valores de ejemplo (`project_id`, `member_id`, `batch_id`, montos de los requests). Bruno **escribe de vuelta al archivo en disco** cada vez que el usuario edita una variable desde la UI (el ícono del ojo) o cuando un script `post-response` hace `bru.setVar(...)`. Como esos `.bru` están trackeados en git, **cada sesión de testeo real dirty-ea archivos commiteados** con valores efímeros de esa sesión (ids de fixtures, montos de prueba) — encontrado al testear finanzas-ong (Marcos: `project_id: 1→29`, `member_id: 1→76`, montos `150.00→15000.00`).
+
+Hoy la única mitigación es manual: `git checkout -- api/` después de cada sesión, antes de commitear cualquier otra cosa — funciona pero depende de acordarse.
+
+**Fix sugerido (no implementado), evaluado con Marcos en finanzas-ong:** clonar los environments a una copia personal gitignoreada (`environments/staging.local.bru`, `environments/prod.local.bru`) y trabajar siempre sobre esa en Bruno — los archivos commiteados quedan de plantilla limpia para siempre, nunca los toca la UI. Mismo patrón que `.env.example` → `.env` (gitignoreado) ya usado para los secrets de prod en esta misma collection. Implementar en Oliva (`api/README.md` + `.gitignore` + generar los `.local.bru` iniciales a partir de los committeados) para que baje ya resuelto a cada fork, en vez de backportearlo desde un fork puntual.
 
 ## Infra compartida (opcional): `docker-compose.shared-infra.yml`
 
@@ -191,8 +228,8 @@ stack de producción.
    (host `postgres`, `<app>_staging_user`, `<app>_staging_db`).
 3. **Build + up** (project name `-p <app>-staging` propio; staging como app en
    shared-infra). `up -d --build` buildea automáticamente cualquier servicio
-   con sección `build` (backend/scheduler con tag `app-backend-staging:1.0`,
-   target `frankenphp_staging`; frontend con tag `app-frontend-staging:1.0`) —
+   con sección `build` (backend/scheduler con tag `<app>-staging-backend:staging`,
+   target `frankenphp_staging`; frontend con tag `<app>-staging-frontend:staging`) —
    no se enumeran servicios a propósito, ver gotcha más abajo:
    ```bash
    docker compose -p <app>-staging \
@@ -328,7 +365,10 @@ git status -s                      # debe estar limpio (o saber qué hay pendien
 git log --oneline -3               # orientarse en dónde quedó la sesión anterior
 docker compose ps                  # todos los servicios healthy
 docker compose exec backend bin/console doctrine:migrations:status  # sin migraciones pendientes
+scripts/oliva/deps.sh due          # ¿toca ciclo de mantenimiento de dependencias?
 ```
+
+En un **fork** se agrega además `scripts/oliva/sync.sh check` (¿Oliva avanzó?). Si alguno de los dos avisa, mencionárselo a Marcos al arrancar — no ejecutar el ciclo sin que lo pida.
 
 Verificar al **cierre** de sesión antes de cortar:
 
