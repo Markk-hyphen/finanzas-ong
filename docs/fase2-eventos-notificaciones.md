@@ -18,7 +18,8 @@ los dos puede creer que todavía está a tiempo de objetar.
 
 Un solo lugar (`App\Domain\Model\ActivityEvent`) define los tipos de evento:
 `expense_created`, `expense_undone`, `payment_created`,
-`payment_created_optimistic`, `payment_confirmed`, `payment_auto_confirmed`,
+`payment_created_optimistic`, `payment_created_auto_timeout`,
+`payment_confirmed`, `payment_auto_confirmed`,
 `payment_withdrawn`, `payment_rejected`, `payment_self_corrected`,
 `movement_cancelled_admin`. Cada escritura al ledger pasa por
 `ActivityRecorder::record()` con uno de estos tipos.
@@ -26,7 +27,7 @@ Un solo lugar (`App\Domain\Model\ActivityEvent`) define los tipos de evento:
 ### 2.2 Audit log (`audit_log`, todo evento)
 
 Tabla append-only: `project_id, event_type, movement_id, actor_id, payload, created_at`.
-Se escribe **siempre**, para los 10 tipos de evento — es el historial completo
+Se escribe **siempre**, para los 11 tipos de evento — es el historial completo
 del proyecto. No tiene endpoint propio en esta fase (no lo pidió Marcos); queda
 como la base para un futuro "ver actividad del proyecto" si hace falta.
 
@@ -34,16 +35,18 @@ como la base para un futuro "ver actividad del proyecto" si hace falta.
 
 `App\Domain\Service\NotificationTargets` (pura, testeada en
 `NotificationTargetsTest`) decide a quién le importa cada evento —
-deliberadamente angosto, solo 4 de los 10 tipos generan notificación:
+deliberadamente angosto, solo 5 de los 11 tipos generan notificación:
 
 | Evento | A quién | Por qué |
 |---|---|---|
 | `payment_created_optimistic` | receptor | nace confirmado; necesita saber que existe y que puede rechazarlo |
+| `payment_created_auto_timeout` | receptor | nace pendiente pero el silencio hasta el plazo es aceptación; tiene que enterarse mientras todavía puede objetar (agregado en la revisión post-Fase 2) |
 | `payment_auto_confirmed` | pagador + receptor | el plazo venció en silencio; ambos deben saber que ya es definitivo |
 | `payment_withdrawn` | receptor | el pagador retiró una parte pendiente que esperaba |
 | `payment_rejected` | pagador | el receptor rechazó su parte; hay que rehacer el pago |
 
-Los otros 6 eventos (alta de gasto, confirmación manual del receptor,
+Los otros 6 eventos (alta de gasto, pago en modo `required` —el pendiente en el
+dashboard ya le pide acción al receptor—, confirmación manual del receptor,
 autocorrección, anulación de admin) quedan solo en el audit log — son la
 propia acción del actor o no tienen una contraparte a la que avisar.
 
@@ -59,7 +62,14 @@ se agregó infraestructura nueva. El frontend pide su propio JWT de suscriptor
 vía `GET /api/notifications/subscription-token` (scopeado a su tópico, nunca
 el secret del hub) y abre un `EventSource`.
 
-**Si Mercure está caído no se pierde nada:** el polling de
+El hub necesita `subscriber_jwt` en `backend/frankenphp/Caddyfile` (con la
+misma clave que `publisher_jwt`, porque MercureBundle firma ambos tokens con
+`MERCURE_JWT_SECRET`): sin esa directiva el hub no autoriza a ningún suscriptor
+para updates privados y el push nunca llega.
+
+**Si Mercure está caído no se pierde nada:** los pushes se encolan y se
+publican en `kernel.terminate` / `console.terminate`, fuera de la transacción
+del ledger; un fallo del hub se loguea y no afecta al pago. El polling de
 `GET /api/notifications` sigue sirviendo los mismos datos desde la DB. El push
 es solo para no tener que refrescar a mano.
 
@@ -83,8 +93,26 @@ Pago `optimistic` real (proyecto `Modes28077`, id 36) → notificación creada
 para el receptor (`GET /api/notifications` la devuelve con `unreadCount: 1`),
 `POST .../read` la marca leída, `GET /api/notifications/subscription-token`
 emite un JWT válido para el tópico propio, y la suscripción a ese tópico en el
-hub Mercure responde `200 text/event-stream` (confirma que el hub acepta el
-JWT privado). La entrega en vivo por SSE no se pudo confirmar con `curl` en
-este entorno — ni siquiera el demo público preexistente (`live.js`) la recibe
-por ese medio aquí — así que no es indicio de un problema del código nuevo;
-falta confirmar con un browser real.
+hub Mercure responde `200 text/event-stream`.
+
+**Revisión post-Fase 2:** la entrega en vivo *sí* estaba rota. El hub no tenía
+`subscriber_jwt`, así que ningún update privado llegaba a nadie (probado con
+`curl`: el público llegaba y el privado no). Arreglado y verificado de punta a
+punta: pago `auto_timeout` real en el proyecto 44 → el receptor recibe por SSE
+`payment_created_auto_timeout` y, después del retiro, `payment_withdrawn`.
+También se verificó que con el hub caído el publisher loguea un warning en vez
+de lanzar la excepción.
+
+## 5. Pendientes conocidos (menores, sin urgencia)
+
+- `notifications.js`: `eventSource.onerror` cierra la conexión y nunca
+  reconecta, y el JWT de suscriptor vence a la hora. Tras un corte o al vencer
+  el token, el aviso en vivo queda muerto hasta recargar la página. El polling de
+  30 s lo cubre.
+- Si se cambia de usuario sin pasar por logout, el `EventSource` sigue
+  suscripto al tópico del usuario anterior. No tiene efecto visible: el
+  push solo dispara un refresh que usa el token actual.
+- Preexistente, no es de la Fase 2: `POST /payments/{batchId}/confirm` no toma
+  el lock `PESSIMISTIC_WRITE` del proyecto ni abre transacción, a diferencia del
+  resto de las escrituras al ledger. Una confirmación que compite con un
+  rechazo puede dejar un pago confirmado *y* anulado.
