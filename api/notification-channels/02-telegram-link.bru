@@ -1,0 +1,21 @@
+meta {
+  name: Start Telegram Link
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/api/me/telegram/link
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Devuelve el deep link t.me/<bot>?start=<token> (un solo uso, vence en 15 min).
+  Abrilo en Telegram, apretá Start y después corré 03-telegram-check.
+  409 si la instancia no ofrece Telegram.
+}

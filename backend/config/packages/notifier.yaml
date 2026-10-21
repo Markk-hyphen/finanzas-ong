@@ -1,0 +1,6 @@
+framework:
+    notifier:
+        # Only the Telegram chatter is used (docs/fase3-mail-telegram.md); mail
+        # goes through the Mailer directly. null://null = instance without Telegram.
+        chatter_transports:
+            telegram: '%env(TELEGRAM_DSN)%'

@@ -1,0 +1,19 @@
+meta {
+  name: Unlink Telegram
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{base_url}}/api/me/telegram
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Desvincula Telegram. El mail sigue activo.
+}

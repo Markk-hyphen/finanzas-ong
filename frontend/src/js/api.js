@@ -71,4 +71,8 @@ export const api = {
     getNotifications:        ()   => request('GET',  '/notifications'),
     markNotificationRead:    (id) => request('POST', `/notifications/${id}/read`),
     getNotificationsToken:   ()   => request('GET',  '/notifications/subscription-token'),
+    getNotificationChannels: ()   => request('GET',  '/me/notification-channels'),
+    linkTelegram:            ()   => request('POST', '/me/telegram/link'),
+    checkTelegram:           ()   => request('POST', '/me/telegram/check'),
+    unlinkTelegram:          ()   => request('DELETE', '/me/telegram'),
 };

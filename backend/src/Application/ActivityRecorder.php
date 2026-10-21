@@ -14,15 +14,16 @@ use Doctrine\ORM\EntityManagerInterface;
 
 // Single place every ledger-affecting write goes through to leave a trail
 // (MANIFIESTO amendment E2). Always writes the full audit_log row; writes a
-// targeted Notification + Mercure push only for the events NotificationTargets
-// cares about. Call from inside the same transaction as the ledger write —
-// if the transaction rolls back, the trail rolls back with it.
+// targeted Notification (Mercure push + mail/Telegram outbox rows, E3) only
+// for the events NotificationTargets cares about. Call from inside the same
+// transaction as the ledger write — if it rolls back, the trail rolls back too.
 class ActivityRecorder
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly NotificationTargets $targets,
         private readonly NotificationPublisher $publisher,
+        private readonly NotificationDeliverer $deliverer,
     ) {}
 
     /**
@@ -55,6 +56,7 @@ class ActivityRecorder
             $notification = new Notification($recipient, $eventType, $movement, $payload);
             $this->em->persist($notification);
             $this->publisher->queue($notification);
+            $this->deliverer->createFor($notification);
         }
     }
 }

@@ -32,6 +32,10 @@ http://:80 {
 
 	handle /.well-known/mercure* {
 		mercure {
+			# Mercure in FrankenPHP >= 1.13 rejects publisher_jwt/subscriber_jwt outside
+			# compatibility mode. Modern mode (issuer blocks + "iss" claim in every token)
+			# is pending: docs/fase3-mail-telegram.md §4.
+			protocol_version_compatibility 8
 			anonymous
 			publisher_jwt {$MERCURE_PUBLISHER_JWT_KEY:!ChangeThisSecret!} HS256
 			# Without it no subscriber can be authorized for private updates.

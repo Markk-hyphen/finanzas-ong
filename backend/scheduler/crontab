@@ -9,3 +9,8 @@
 # docs/fase1-modos-de-confirmacion.md §2.1). Sin el profile `cron`, este job no
 # corre y la API no ofrece auto_timeout.
 */5 * * * * bin/console app:payments:auto-confirm -v
+
+# finanzas-ong: reintentos de entrega de notificaciones por mail/Telegram (ver
+# docs/fase3-mail-telegram.md §2.3). El primer intento sale al terminar el request;
+# este barrido solo toma lo que falló.
+* * * * * bin/console app:notifications:deliver -q
