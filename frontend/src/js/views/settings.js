@@ -1,96 +1,141 @@
-import Swal from 'sweetalert2';
 import { api } from '../api.js';
 import { setNav, navigate } from '../nav.js';
 import { esc } from '../html.js';
+import { icon } from '../ui/icons.js';
+import { toast } from '../ui/feedback.js';
 
 const MODES = [
     {
         value: 'required',
         label: 'Confirmación obligatoria',
         help:  'El pago no cuenta hasta que quien lo recibe lo confirma.',
+        icon:  'shieldCheck',
     },
     {
         value: 'optimistic',
         label: 'Sin confirmación',
         help:  'El pago cuenta apenas se registra; quien lo recibe puede rechazarlo dentro del plazo de objeción.',
+        icon:  'zap',
     },
     {
         value: 'auto_timeout',
         label: 'Autoconfirmación',
         help:  'El pago queda pendiente y se confirma solo si nadie lo objeta dentro del plazo.',
+        icon:  'hourglass',
     },
 ];
 
 // Admin-only: confirmation mode and windows of a project (MANIFIESTO E1)
 export async function renderSettings(el, projectId) {
-    setNav({ title: 'Configuración', back: `/project/${projectId}` });
-
     const [overview, caps] = await Promise.all([api.getOverview(projectId), api.getCapabilities()]);
     const s = overview.settings;
+    const name = overview.project.name;
+    setNav({
+        title: 'Configuración',
+        back: `/project/${projectId}`,
+        crumbs: [{ label: 'Mis proyectos', href: '/projects' }, { label: name, href: `/project/${projectId}` }, { label: 'Configuración' }],
+    });
     // auto_timeout depends on this instance running the scheduler; keep it
     // selectable only if available or already in use.
     const autoTimeoutBlocked = !caps.autoTimeout && s.confirmationMode !== 'auto_timeout';
 
     el.innerHTML = `
-        <form id="settings-form" class="mt-3">
-            <p class="text-muted small mb-3">${esc(overview.project.name)}</p>
+        <div class="form-page narrow">
+            <header class="page-head">
+                <div>
+                    <h1 class="page-title">Configuración</h1>
+                    <p class="page-sub">${esc(name)} · Cómo se confirman los pagos y cuánto margen hay para corregir.</p>
+                </div>
+            </header>
 
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Modo de confirmación de pagos</label>
-                ${MODES.map(m => {
-                    const disabled = m.value === 'auto_timeout' && autoTimeoutBlocked;
-                    return `
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="radio" name="mode" id="mode-${m.value}" value="${m.value}"
-                               ${s.confirmationMode === m.value ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
-                        <label class="form-check-label ${disabled ? 'text-muted' : ''}" for="mode-${m.value}">
-                            ${m.label}
-                            <div class="text-muted small">${m.help}</div>
-                            ${disabled ? '<div class="small text-danger">No es posible configurar auto timeout en esta instancia (no hay un scheduler activo).</div>' : ''}
-                        </label>
-                    </div>`;
-                }).join('')}
-                ${s.confirmationMode === 'auto_timeout' && !caps.autoTimeout
-                    ? '<div class="alert alert-warning small py-2">Este proyecto usa autoconfirmación pero el scheduler de esta instancia no está corriendo: los pagos esperan confirmación manual.</div>'
-                    : ''}
-            </div>
+            <form id="settings-form" novalidate>
+                <section class="card settings-section">
+                    <div class="card-header"><h2 class="card-title">Modo de confirmación de pagos</h2></div>
+                    <div class="card-body">
+                        <div class="option-list" role="radiogroup">
+                        ${MODES.map(m => {
+                            const disabled = m.value === 'auto_timeout' && autoTimeoutBlocked;
+                            return `
+                            <label class="option">
+                                <input type="radio" name="mode" value="${m.value}" ${s.confirmationMode === m.value ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                                <span class="option-icon">${icon(m.icon)}</span>
+                                <span style="flex:1;min-width:0">
+                                    <span class="option-title">${m.label}</span>
+                                    <span class="option-help" style="display:block">${m.help}</span>
+                                    ${disabled ? '<span class="option-note" style="display:block">No disponible en esta instancia: no hay un scheduler activo.</span>' : ''}
+                                </span>
+                                <span class="option-check"></span>
+                            </label>`;
+                        }).join('')}
+                        </div>
+                        ${s.confirmationMode === 'auto_timeout' && !caps.autoTimeout
+                            ? `<div class="callout callout-warn" style="margin-top:1rem">${icon('alert')}<div>Este proyecto usa autoconfirmación pero el scheduler de esta instancia no está corriendo: los pagos esperan confirmación manual.</div></div>`
+                            : ''}
+                    </div>
+                </section>
 
-            <div class="mb-3">
-                <label class="form-label fw-semibold" for="f-objection">Plazo de objeción (horas)</label>
-                <input type="number" id="f-objection" class="form-control" min="1" max="720" step="1" value="${esc(s.objectionWindowHours)}" required>
-                <div class="form-text">Cuánto tiempo tiene quien recibe un pago para rechazarlo (sin confirmación) o hasta que se confirma solo (autoconfirmación).</div>
-            </div>
+                <section class="card settings-section">
+                    <div class="card-header"><h2 class="card-title">Plazos</h2></div>
+                    <div class="card-body settings-windows">
+                        <div class="field" id="objection-field">
+                            <label class="label" for="f-objection">Plazo de objeción</label>
+                            <div class="input-group">
+                                <input type="number" id="f-objection" class="input" min="1" max="720" step="1" value="${esc(s.objectionWindowHours)}" required inputmode="numeric">
+                                <span class="suffix">horas</span>
+                            </div>
+                            <div class="hint" id="objection-hint">Cuánto tiempo tiene quien recibe un pago para rechazarlo (sin confirmación) o hasta que se confirma solo (autoconfirmación). Entre 1 y 720.</div>
+                        </div>
+                        <div class="field">
+                            <label class="label" for="f-self-cancel">Ventana para deshacer lo propio</label>
+                            <div class="input-group">
+                                <input type="number" id="f-self-cancel" class="input" min="0" max="1440" step="1" value="${esc(s.selfCancelMinutes)}" required inputmode="numeric">
+                                <span class="suffix">minutos</span>
+                            </div>
+                            <div class="hint">Cuánto tiempo tiene cada socio para deshacer un gasto que cargó mal. 0 lo desactiva.</div>
+                        </div>
+                    </div>
+                </section>
 
-            <div class="mb-4">
-                <label class="form-label fw-semibold" for="f-self-cancel">Ventana para deshacer lo propio (minutos)</label>
-                <input type="number" id="f-self-cancel" class="form-control" min="0" max="1440" step="1" value="${esc(s.selfCancelMinutes)}" required>
-                <div class="form-text">Cuánto tiempo tiene cada socio para deshacer un gasto que cargó mal. 0 lo desactiva.</div>
-            </div>
+                <div id="settings-err" class="callout callout-neg form-error hidden" role="alert" style="margin-bottom:1rem"></div>
 
-            <div id="settings-err" class="alert alert-danger d-none small py-2 mb-3"></div>
-            <button type="submit" id="settings-btn" class="btn btn-primary w-100 py-2">Guardar</button>
-        </form>
+                <div class="settings-actions">
+                    <a class="btn btn-ghost" href="#/project/${esc(projectId)}">Cancelar</a>
+                    <button type="submit" id="settings-btn" class="btn btn-primary btn-lg">${icon('check')} Guardar cambios</button>
+                </div>
+            </form>
+        </div>
     `;
 
-    document.getElementById('settings-form').addEventListener('submit', async e => {
+    // The objection window only matters for the two non-required modes
+    const syncObjection = () => {
+        const mode = el.querySelector('input[name="mode"]:checked')?.value;
+        el.querySelector('#objection-field').classList.toggle('is-muted', mode === 'required');
+    };
+    el.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', syncObjection));
+    syncObjection();
+
+    el.querySelector('#settings-form').addEventListener('submit', async e => {
         e.preventDefault();
-        const btn = document.getElementById('settings-btn');
-        const err = document.getElementById('settings-err');
-        err.classList.add('d-none');
+        const btn = el.querySelector('#settings-btn');
+        const err = el.querySelector('#settings-err');
+        err.classList.add('hidden');
         btn.disabled = true;
+        btn.classList.add('is-loading');
 
         try {
             await api.updateSettings(projectId, {
-                confirmationMode:     document.querySelector('input[name="mode"]:checked').value,
-                objectionWindowHours: parseInt(document.getElementById('f-objection').value, 10),
-                selfCancelMinutes:    parseInt(document.getElementById('f-self-cancel').value, 10),
+                confirmationMode:     el.querySelector('input[name="mode"]:checked').value,
+                objectionWindowHours: parseInt(el.querySelector('#f-objection').value, 10),
+                selfCancelMinutes:    parseInt(el.querySelector('#f-self-cancel').value, 10),
             });
-            await Swal.fire({ icon: 'success', title: 'Configuración guardada', timer: 1200, showConfirmButton: false });
+            toast('Configuración guardada');
             navigate(`/project/${projectId}`);
         } catch (ex) {
-            err.textContent = ex.message;
-            err.classList.remove('d-none');
+            err.innerHTML = `${icon('alert')}<span></span>`;
+            err.querySelector('span').textContent = ex.message;
+            err.classList.remove('hidden');
             btn.disabled = false;
+            btn.classList.remove('is-loading');
         }
     });
 }

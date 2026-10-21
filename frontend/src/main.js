@@ -1,10 +1,12 @@
-import 'bootstrap/dist/css/bootstrap.min.css';
 import './style.css';
 
 import { storage } from './js/api.js';
 import { esc } from './js/html.js';
-import { navigate } from './js/nav.js';
-import { initNotifications } from './js/notifications.js';
+import { navigate, watchPageTitle } from './js/nav.js';
+import { closePanel as closeNotifications, initNotifications } from './js/notifications.js';
+import { initShell, renderShell } from './js/shell.js';
+import { icon } from './js/ui/icons.js';
+import { closeMenu } from './js/ui/feedback.js';
 import { renderLogin }     from './js/views/login.js';
 import { renderProjects }  from './js/views/projects.js';
 import { renderDashboard } from './js/views/dashboard.js';
@@ -30,23 +32,51 @@ function parseRoute(hash) {
     return { view: 'login' };
 }
 
-const spinner = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+// Placeholder shaped like the view being loaded, so the layout does not jump
+function skeleton(view) {
+    const line = (w, h = 12) => `<div class="skel skel-line" style="width:${w};height:${h}px"></div>`;
+    const card = (rows) => `<div class="card" style="padding:1.25rem;display:grid;gap:1rem">${Array.from({ length: rows }, () =>
+        `<div style="display:flex;gap:.85rem;align-items:center"><div class="skel skel-circle" style="width:36px;height:36px"></div><div style="flex:1;display:grid;gap:.45rem">${line('45%')}${line('25%', 10)}</div>${line('70px')}</div>`).join('')}</div>`;
+
+    if (view === 'dashboard') {
+        return `<div class="skeleton-page">
+            <div style="display:grid;gap:.6rem;margin:.5rem 0 1.5rem">${line('220px', 28)}${line('160px', 14)}</div>
+            <div class="dash-stats">${'<div class="skel" style="height:118px;border-radius:16px"></div>'.repeat(3)}</div>
+            <div class="dash-grid" style="margin-top:1.25rem"><div>${card(5)}</div><div>${card(3)}</div></div>
+        </div>`;
+    }
+    if (view === 'projects') {
+        return `<div style="display:grid;gap:.6rem;margin:.5rem 0 1.5rem">${line('200px', 28)}${line('140px', 14)}</div>
+            <div class="project-grid">${'<div class="skel" style="height:148px;border-radius:16px"></div>'.repeat(3)}</div>`;
+    }
+    return `<div class="form-page"><div style="display:grid;gap:.6rem;margin:.5rem 0 1.5rem">${line('200px', 28)}${line('260px', 14)}</div>
+        <div class="skel" style="height:320px;border-radius:16px"></div></div>`;
+}
+
+let renderSeq = 0;
 
 async function dispatch() {
-    const { view, id } = parseRoute(location.hash);
+    const route = parseRoute(location.hash);
+    const { view, id } = route;
     const el = document.getElementById('app');
-    el.innerHTML = spinner;
+    const seq = ++renderSeq;
 
     if (!storage.getToken() && view !== 'login') {
         navigate('/login');
         return;
     }
 
+    closeMenu();
+    closeNotifications();
+    document.body.classList.remove('has-actionbar');
+    document.querySelector('.actionbar')?.remove();
+
+    renderShell(route);
     initNotifications();
 
-    const btnAccount = document.getElementById('btn-account');
-    btnAccount.classList.toggle('d-none', !storage.getToken());
-    btnAccount.onclick = () => navigate('/account');
+    el.classList.remove('view-enter');
+    el.innerHTML = skeleton(view);
+    window.scrollTo({ top: 0, behavior: 'instant' });
 
     try {
         switch (view) {
@@ -60,11 +90,28 @@ async function dispatch() {
             default:          navigate('/login');
         }
     } catch (e) {
+        if (seq !== renderSeq) return;
         if (e.message !== 'Sesión expirada. Iniciá sesión nuevamente.') {
-            el.innerHTML = `<div class="alert alert-danger mt-3">${esc(e.message)}</div>`;
+            el.innerHTML = `
+                <div class="card" style="margin-top:1rem">
+                    <div class="empty">
+                        <div class="empty-icon">${icon('alert')}</div>
+                        <div class="empty-title">No pudimos cargar esta pantalla</div>
+                        <div class="empty-text">${esc(e.message)}</div>
+                        <button class="btn btn-secondary btn-sm" style="margin-top:.5rem" id="btn-retry">${icon('refresh')} Reintentar</button>
+                    </div>
+                </div>`;
+            document.getElementById('btn-retry').onclick = dispatch;
         }
     }
+
+    if (seq !== renderSeq) return;
+    // Restart the entrance animation for the freshly rendered view
+    void el.offsetWidth;
+    el.classList.add('view-enter');
+    watchPageTitle(el);
 }
 
+initShell();
 window.addEventListener('hashchange', dispatch);
 window.addEventListener('load', dispatch);

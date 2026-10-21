@@ -1,110 +1,172 @@
-import Swal from 'sweetalert2';
-import { api } from '../api.js';
+import { api, storage } from '../api.js';
 import { setNav, navigate } from '../nav.js';
 import { esc } from '../html.js';
+import { icon } from '../ui/icons.js';
+import { avatar, fmt, fmtDateTime } from '../ui/format.js';
+import { toast } from '../ui/feedback.js';
+import { amountField, bindAmountField } from '../ui/amount.js';
 
-function fmt(amount) {
-    return '$ ' + Number(amount).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+const AFTER = {
+    required:     { icon: 'shieldCheck', text: 'Cada receptor tiene que <strong>confirmar</strong> que recibió su parte. Hasta entonces el pago queda pendiente.' },
+    optimistic:   { icon: 'zap', text: 'El pago <strong>impacta en el acto</strong>. Cada receptor puede rechazar su parte si no le llegó, dentro del plazo de objeción.' },
+    auto_timeout: { icon: 'hourglass', text: 'El pago queda pendiente y <strong>se confirma solo</strong> si nadie lo objeta dentro del plazo.' },
+};
 
 export async function renderPayment(el, projectId) {
-    setNav({ title: 'Registrar pago', back: `/project/${projectId}` });
-
-    let previewData = null;
-
-    el.innerHTML = `
-        <form id="payment-form" class="mt-3">
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Monto a pagar <span class="text-danger">*</span></label>
-                <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number" id="f-amount" class="form-control form-control-lg"
-                           placeholder="0.00" min="0.01" step="0.01" required inputmode="decimal" />
-                </div>
-            </div>
-
-            <div id="preview-section" class="d-none mb-3">
-                <div class="card border-0 bg-light">
-                    <div class="card-body py-2 px-3">
-                        <div class="small fw-semibold mb-2 text-muted">Distribución del pago</div>
-                        <ul id="allocation-list" class="mb-0 ps-3 small"></ul>
-                    </div>
-                </div>
-            </div>
-
-            <div id="payment-err" class="alert alert-danger d-none small py-2 mb-3"></div>
-
-            <div class="d-grid gap-2">
-                <button type="button" id="btn-preview" class="btn btn-outline-primary py-2">Ver cómo se distribuye</button>
-                <button type="submit"  id="btn-confirm" class="btn btn-primary py-2 d-none">Confirmar pago</button>
-            </div>
-        </form>
-    `;
-
-    document.getElementById('btn-preview').addEventListener('click', async () => {
-        const amount = document.getElementById('f-amount').value;
-        const err    = document.getElementById('payment-err');
-        err.classList.add('d-none');
-
-        if (!amount || Number(amount) <= 0) {
-            err.textContent = 'Ingresá un monto válido.';
-            err.classList.remove('d-none');
-            return;
-        }
-
-        const btn = document.getElementById('btn-preview');
-        btn.disabled = true;
-        btn.textContent = 'Calculando…';
-
-        try {
-            previewData = await api.previewPayment(projectId, { amount });
-
-            const list = document.getElementById('allocation-list');
-            list.innerHTML = previewData.allocations.map(a =>
-                `<li>${esc(a.toMemberName)}: <strong>${fmt(a.amount)}</strong></li>`
-            ).join('');
-
-            document.getElementById('preview-section').classList.remove('d-none');
-            document.getElementById('btn-confirm').classList.remove('d-none');
-            btn.textContent = 'Recalcular';
-        } catch (ex) {
-            err.textContent = ex.message;
-            err.classList.remove('d-none');
-        } finally {
-            btn.disabled = false;
-        }
+    const user = storage.getUser();
+    const dash = await api.getDashboard(projectId);
+    const name = dash.project.name;
+    setNav({
+        title: 'Registrar pago',
+        back: `/project/${projectId}`,
+        crumbs: [{ label: 'Mis proyectos', href: '/projects' }, { label: name, href: `/project/${projectId}` }, { label: 'Registrar pago' }],
     });
 
-    document.getElementById('payment-form').addEventListener('submit', async e => {
-        e.preventDefault();
-        if (!previewData) return;
+    const myBalance = Number(dash.balances.find(b => b.memberId === user?.id)?.balance ?? 0);
+    const payable = Math.max(0, -Number(dash.myProjectedBalance ?? myBalance));
+    const mode = dash.settings?.confirmationMode ?? 'required';
+    const after = AFTER[mode] ?? AFTER.required;
 
-        const btn = document.getElementById('btn-confirm');
-        const err = document.getElementById('payment-err');
-        err.classList.add('d-none');
+    if (payable < 0.01) {
+        el.innerHTML = `
+            <div class="form-page">
+                <header class="page-head"><div><h1 class="page-title">Registrar pago</h1><p class="page-sub">${esc(name)}</p></div></header>
+                <div class="card"><div class="empty">
+                    <div class="empty-icon">${icon('checkCircle')}</div>
+                    <div class="empty-title">No tenés nada para pagar</div>
+                    <div class="empty-text">${myBalance < 0 ? 'Tus pagos pendientes ya cubren tu deuda. Esperá a que los confirmen.' : 'Estás al día en este proyecto.'}</div>
+                    <a class="btn btn-secondary btn-sm" style="margin-top:.5rem" href="#/project/${esc(projectId)}">Volver al proyecto</a>
+                </div></div>
+            </div>`;
+        return;
+    }
+
+    el.innerHTML = `
+        <div class="form-page">
+            <header class="page-head">
+                <div>
+                    <h1 class="page-title">Registrar pago</h1>
+                    <p class="page-sub">${esc(name)} · Saldá tu deuda con el grupo.</p>
+                </div>
+            </header>
+
+            <div class="form-layout">
+                <form id="payment-form" class="card form-card" novalidate>
+                    <div class="card-body">
+                        <div class="owed-banner">
+                            <span class="muted small">Podés pagar hasta</span>
+                            <span class="owed-amount num">${fmt(payable)}</span>
+                        </div>
+                        ${amountField({ id: 'f-amount', label: 'Monto a pagar' })}
+                        <div class="quick-row" style="margin-top:.9rem">
+                            <button type="button" class="quick" data-fill="${payable.toFixed(2)}">Todo lo que debo</button>
+                            ${payable >= 2 ? `<button type="button" class="quick" data-fill="${(Math.floor(payable * 50) / 100).toFixed(2)}">La mitad</button>` : ''}
+                        </div>
+                        <div id="payment-err" class="callout callout-neg form-error hidden" role="alert" style="margin-top:1.25rem"></div>
+                    </div>
+                    <div class="form-actions">
+                        <a class="btn btn-ghost" href="#/project/${esc(projectId)}">Cancelar</a>
+                        <button type="submit" id="btn-confirm" class="btn btn-primary btn-lg" disabled>${icon('send')} Confirmar pago</button>
+                    </div>
+                </form>
+
+                <aside class="form-aside">
+                    <section class="card">
+                        <div class="card-header"><h2 class="card-title">${icon('send')} A quién le llega</h2></div>
+                        <p class="card-desc">El pago se reparte entre quienes tienen saldo a favor, en proporción a lo que se les debe.</p>
+                        <div id="allocation" class="alloc">
+                            <div class="alloc-empty faint small">Ingresá un monto para ver la distribución.</div>
+                        </div>
+                    </section>
+                    <div class="callout callout-brand">${icon(after.icon)}<div>${after.text}</div></div>
+                </aside>
+            </div>
+        </div>
+    `;
+
+    const btn = el.querySelector('#btn-confirm');
+    const err = el.querySelector('#payment-err');
+    const alloc = el.querySelector('#allocation');
+    let previewFor = null, timer = null, seq = 0;
+
+    const drawPreview = (p) => {
+        const max = Math.max(...p.allocations.map(a => Number(a.amount)), 1);
+        alloc.innerHTML = `<ul class="list">${p.allocations.map(a => `
+            <li class="list-item split-item">
+                ${avatar(a.toMemberName, a.toMemberId, 'sm')}
+                <div class="main">
+                    <div class="title"><span class="truncate">${esc(a.toMemberName)}</span></div>
+                    <div class="split-bar pos"><i style="width:${(Number(a.amount) / max) * 100}%"></i></div>
+                </div>
+                <div class="side num strong">${fmt(a.amount)}</div>
+            </li>`).join('')}</ul>`;
+    };
+
+    const preview = async (amount) => {
+        previewFor = null;
         btn.disabled = true;
-        btn.textContent = 'Registrando…';
+        err.classList.add('hidden');
+        clearTimeout(timer);
+        if (!amount) {
+            alloc.innerHTML = '<div class="alloc-empty faint small">Ingresá un monto para ver la distribución.</div>';
+            return;
+        }
+        if (Number(amount) > payable + 0.001) {
+            alloc.innerHTML = '';
+            showErr(err, `El monto supera lo que podés pagar (${fmt(payable)}).`);
+            return;
+        }
+        alloc.classList.add('loading');
+        timer = setTimeout(async () => {
+            const mine = ++seq;
+            try {
+                const p = await api.previewPayment(projectId, { amount });
+                if (mine !== seq) return;
+                drawPreview(p);
+                previewFor = amount;
+                btn.disabled = false;
+            } catch (ex) {
+                if (mine !== seq) return;
+                alloc.innerHTML = '';
+                showErr(err, ex.message);
+            } finally {
+                if (mine === seq) alloc.classList.remove('loading');
+            }
+        }, 350);
+    };
+
+    const field = bindAmountField(el, 'f-amount', preview);
+    el.querySelectorAll('[data-fill]').forEach(b => b.addEventListener('click', () => {
+        field.set(b.dataset.fill.replace('.', ','));
+        field.input.focus();
+    }));
+
+    el.querySelector('#payment-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!previewFor) return;
+        err.classList.add('hidden');
+        btn.disabled = true;
+        btn.classList.add('is-loading');
 
         try {
-            const res = await api.createPayment(projectId, { amount: document.getElementById('f-amount').value });
+            const res = await api.createPayment(projectId, { amount: previewFor });
             const text = {
                 optimistic:   'Ya impacta en los balances. Quien lo recibe puede rechazarlo si no le llegó.',
                 auto_timeout: 'Está pendiente; si nadie lo objeta se confirma solo'
-                              + (res.autoConfirmAt ? ` el ${new Date(res.autoConfirmAt).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : '') + '.',
-            }[res.confirmationMode] ?? 'Está pendiente de confirmación por los receptores.';
-            await Swal.fire({
-                icon: 'success',
-                title: 'Pago registrado',
-                text,
-                timer: 3000,
-                showConfirmButton: false,
-            });
+                              + (res.autoConfirmAt ? ` el ${fmtDateTime(res.autoConfirmAt)}` : '') + '.',
+            }[res.confirmationMode] ?? 'Queda pendiente hasta que los receptores lo confirmen.';
+            toast('Pago registrado', { text, duration: 5000 });
             navigate(`/project/${projectId}`);
         } catch (ex) {
-            err.textContent = ex.message;
-            err.classList.remove('d-none');
+            showErr(err, ex.message);
             btn.disabled = false;
-            btn.textContent = 'Confirmar pago';
+            btn.classList.remove('is-loading');
         }
     });
+}
+
+function showErr(err, message) {
+    err.innerHTML = `${icon('alert')}<span></span>`;
+    err.querySelector('span').textContent = message;
+    err.classList.remove('hidden');
 }

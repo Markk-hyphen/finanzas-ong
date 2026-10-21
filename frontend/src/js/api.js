@@ -57,6 +57,7 @@ export const api = {
     getProjects:    ()          => request('GET',  '/projects'),
     getDashboard:   (id)        => request('GET',  `/projects/${id}/dashboard`),
     getOverview:    (id)        => request('GET',  `/projects/${id}/overview`),
+    getMembers:     (id)        => request('GET',  `/projects/${id}/members`),
     createExpense:  (id, body)  => request('POST', `/projects/${id}/expenses`, body),
     previewPayment: (id, body)  => request('POST', `/projects/${id}/payments/preview`, body),
     createPayment:  (id, body)  => request('POST', `/projects/${id}/payments`, body),
