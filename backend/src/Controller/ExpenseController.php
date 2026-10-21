@@ -11,6 +11,7 @@ use App\Entity\Material;
 use App\Entity\Member;
 use App\Entity\Movement;
 use App\Entity\Project;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -30,10 +31,16 @@ class ExpenseController extends AbstractController
     #[Route('/projects/{id}/expenses', methods: ['POST'])]
     public function create(int $id, Request $request): JsonResponse
     {
+        // Same per-project lock as payment creation: ledger writes are serialized.
+        return $this->em->wrapInTransaction(fn() => $this->persistExpense($id, $request));
+    }
+
+    private function persistExpense(int $id, Request $request): JsonResponse
+    {
         /** @var Member $member */
         $member = $this->getUser();
 
-        $project = $this->em->find(Project::class, $id);
+        $project = $this->em->find(Project::class, $id, LockMode::PESSIMISTIC_WRITE);
         if (!$project) {
             return new JsonResponse(['error' => 'Project not found.'], 404);
         }

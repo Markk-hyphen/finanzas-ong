@@ -6,6 +6,8 @@ namespace App\Controller;
 
 use App\Entity\Member;
 use App\Entity\Movement;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -60,6 +62,16 @@ class MovementController extends AbstractController
     #[IsGranted('ROLE_ADMIN')]
     public function cancel(int $id, Request $request): JsonResponse
     {
+        try {
+            return $this->em->wrapInTransaction(fn() => $this->persistCancellation($id, $request));
+        } catch (UniqueConstraintViolationException) {
+            // A concurrent request cancelled the same movement first.
+            return new JsonResponse(['error' => 'Movement is already cancelled.'], 409);
+        }
+    }
+
+    private function persistCancellation(int $id, Request $request): JsonResponse
+    {
         /** @var Member $admin */
         $admin = $this->getUser();
 
@@ -67,6 +79,9 @@ class MovementController extends AbstractController
         if (!$movement) {
             return new JsonResponse(['error' => 'Movement not found.'], 404);
         }
+
+        // Same per-project lock as payment creation: ledger writes are serialized.
+        $this->em->lock($movement->getProject(), LockMode::PESSIMISTIC_WRITE);
 
         if ($movement->getType() === Movement::TYPE_CANCELLATION) {
             return new JsonResponse(['error' => 'Cannot cancel a cancellation.'], 422);
@@ -92,9 +107,11 @@ class MovementController extends AbstractController
         $batchId = $movement->getBatchId();
 
         if ($batchId !== null) {
-            // Cancel all active movements in the batch
+            // Cancel all active movements in the batch (rows already cancelled on their own are skipped)
             $batchMovements = $this->em->createQuery(
-                'SELECT m FROM App\Entity\Movement m WHERE m.batchId = :batchId AND m.type != :cancel'
+                'SELECT m FROM App\Entity\Movement m
+                 WHERE m.batchId = :batchId AND m.type != :cancel
+                 AND NOT EXISTS (SELECT c.id FROM App\Entity\Movement c WHERE c.cancelsMovement = m)'
             )
             ->setParameter('batchId', $batchId)
             ->setParameter('cancel', Movement::TYPE_CANCELLATION)

@@ -8,6 +8,9 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'movements')]
+// A movement can be cancelled at most once; enforced in the DB so concurrent
+// cancel requests cannot insert duplicate cancellation rows.
+#[ORM\UniqueConstraint(name: 'uniq_movements_cancels_movement', columns: ['cancels_movement_id'])]
 class Movement
 {
     public const TYPE_EXPENSE     = 'expense';
