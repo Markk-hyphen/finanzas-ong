@@ -365,10 +365,11 @@ git status -s                      # debe estar limpio (o saber qué hay pendien
 git log --oneline -3               # orientarse en dónde quedó la sesión anterior
 docker compose ps                  # todos los servicios healthy
 docker compose exec backend bin/console doctrine:migrations:status  # sin migraciones pendientes
+scripts/oliva/sync.sh check        # ¿Oliva avanzó? (este repo es fork de Oliva)
 scripts/oliva/deps.sh due          # ¿toca ciclo de mantenimiento de dependencias?
 ```
 
-En un **fork** se agrega además `scripts/oliva/sync.sh check` (¿Oliva avanzó?). Si alguno de los dos avisa, mencionárselo a Marcos al arrancar — no ejecutar el ciclo sin que lo pida.
+Si alguno de los dos avisa, mencionárselo a Marcos al arrancar — no ejecutar el ciclo sin que lo pida.
 
 Verificar al **cierre** de sesión antes de cortar:
 
