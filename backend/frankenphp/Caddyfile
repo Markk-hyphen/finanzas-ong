@@ -34,6 +34,9 @@ http://:80 {
 		mercure {
 			anonymous
 			publisher_jwt {$MERCURE_PUBLISHER_JWT_KEY:!ChangeThisSecret!} HS256
+			# Without it no subscriber can be authorized for private updates.
+			# Same key on purpose: MercureBundle signs both token kinds with MERCURE_JWT_SECRET.
+			subscriber_jwt {$MERCURE_PUBLISHER_JWT_KEY:!ChangeThisSecret!} HS256
 		}
 	}
 
