@@ -57,6 +57,7 @@ export const api = {
     getProjects:    ()          => request('GET',  '/projects'),
     getDashboard:   (id)        => request('GET',  `/projects/${id}/dashboard`),
     getOverview:    (id)        => request('GET',  `/projects/${id}/overview`),
+    getMembers:     (id)        => request('GET',  `/projects/${id}/members`),
     createExpense:  (id, body)  => request('POST', `/projects/${id}/expenses`, body),
     previewPayment: (id, body)  => request('POST', `/projects/${id}/payments/preview`, body),
     createPayment:  (id, body)  => request('POST', `/projects/${id}/payments`, body),
@@ -68,6 +69,8 @@ export const api = {
     getCapabilities: ()         => request('GET',  '/instance/capabilities'),
     updateSettings: (id, body)  => request('PATCH', `/projects/${id}/settings`, body),
     getMaterials:   (q)         => request('GET',  `/materials?q=${encodeURIComponent(q)}`),
+    // Idempotent: returns the existing material when the normalized name already exists
+    createMaterial: (name)      => request('POST', '/materials', { name }),
     getNotifications:        ()   => request('GET',  '/notifications'),
     markNotificationRead:    (id) => request('POST', `/notifications/${id}/read`),
     getNotificationsToken:   ()   => request('GET',  '/notifications/subscription-token'),
