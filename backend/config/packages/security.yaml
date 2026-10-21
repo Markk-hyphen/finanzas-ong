@@ -13,6 +13,7 @@ security:
         login:
             pattern: ^/api/login
             stateless: true
+            user_checker: App\Security\MemberUserChecker
             json_login:
                 check_path: /api/login
                 username_path: login
@@ -22,6 +23,7 @@ security:
         api:
             pattern: ^/api
             stateless: true
+            user_checker: App\Security\MemberUserChecker
             jwt: ~
 
     access_control:

@@ -48,7 +48,8 @@ export const api = {
             body: JSON.stringify({ login, password }),
         });
         const d = await r.json();
-        if (!r.ok) throw new Error('Usuario o contraseña incorrectos.');
+        // Bad credentials stay generic; account-status messages (e.g. deactivated) are shown as sent
+        if (!r.ok) throw new Error(d.message && d.message !== 'Invalid credentials.' ? d.message : 'Usuario o contraseña incorrectos.');
         return d;
     },
 
