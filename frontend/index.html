@@ -11,9 +11,16 @@
     <div class="container-fluid px-3" style="min-height:48px">
       <button id="btn-back" class="btn btn-link text-white p-0 d-none" style="font-size:1.6rem;line-height:1;width:2rem">‹</button>
       <span id="nav-title" class="navbar-brand mx-auto mb-0 fs-6 fw-semibold">Finanzas ONG</span>
-      <button id="btn-logout" class="btn btn-link text-white p-0 d-none" style="font-size:1.1rem;width:2rem" title="Cerrar sesión">⏻</button>
+      <div class="d-flex align-items-center">
+        <button id="btn-notifications" class="btn btn-link text-white p-0 position-relative d-none" style="font-size:1.2rem;width:2rem" title="Notificaciones">
+          🔔<span id="notifications-badge" class="badge rounded-pill bg-danger position-absolute d-none" style="top:-4px;right:-2px;font-size:0.6rem">0</span>
+        </button>
+        <button id="btn-logout" class="btn btn-link text-white p-0 d-none ms-1" style="font-size:1.1rem;width:2rem" title="Cerrar sesión">⏻</button>
+      </div>
     </div>
   </nav>
+
+  <div id="notifications-panel" class="d-none"></div>
 
   <main id="app" class="container-fluid pt-5 mt-2 pb-5 px-3" style="max-width:600px"></main>
 

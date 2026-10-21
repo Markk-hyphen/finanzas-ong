@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Application\ActivityRecorder;
+use App\Domain\Model\ActivityEvent;
 use App\Domain\Service\CancellationPolicy;
 use App\Entity\Member;
 use App\Entity\Movement;
@@ -19,7 +21,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/api')]
 class MovementController extends AbstractController
 {
-    public function __construct(private readonly EntityManagerInterface $em) {}
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly ActivityRecorder $activityRecorder,
+    ) {}
 
     #[Route('/movements/{id}', methods: ['GET'])]
     public function get(int $id): JsonResponse
@@ -119,7 +124,9 @@ class MovementController extends AbstractController
             ->getResult();
 
             foreach ($batchMovements as $bm) {
-                $this->em->persist($this->buildCancellation($bm, $admin, $reason));
+                $cancellation = $this->buildCancellation($bm, $admin, $reason);
+                $this->em->persist($cancellation);
+                $this->activityRecorder->record($bm->getProject(), ActivityEvent::MOVEMENT_CANCELLED_ADMIN, $cancellation, $admin);
             }
 
             $this->em->flush();
@@ -129,6 +136,7 @@ class MovementController extends AbstractController
 
         $cancellation = $this->buildCancellation($movement, $admin, $reason);
         $this->em->persist($cancellation);
+        $this->activityRecorder->record($movement->getProject(), ActivityEvent::MOVEMENT_CANCELLED_ADMIN, $cancellation, $admin);
         $this->em->flush();
 
         return new JsonResponse(['cancellationId' => $cancellation->getId()]);

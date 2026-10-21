@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Application\ActivityRecorder;
 use App\Application\MovementLoader;
 use App\Application\UserCancellation;
+use App\Domain\Model\ActivityEvent;
 use App\Domain\Service\CancellationPolicy;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use App\Domain\Service\AnomalyDetector;
@@ -32,6 +34,7 @@ class ExpenseController extends AbstractController
         private readonly ProjectGuard $projectGuard,
         private readonly DecimalParser $decimals,
         private readonly UserCancellation $userCancellation,
+        private readonly ActivityRecorder $activityRecorder,
     ) {}
 
     #[Route('/projects/{id}/expenses', methods: ['POST'])]
@@ -137,6 +140,7 @@ class ExpenseController extends AbstractController
         }
 
         $this->em->persist($expense);
+        $this->activityRecorder->record($project, ActivityEvent::EXPENSE_CREATED, $expense, $member);
         $this->em->flush();
 
         return new JsonResponse(['id' => $expense->getId(), 'warning' => $warning], 201);

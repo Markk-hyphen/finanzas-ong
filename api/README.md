@@ -114,6 +114,9 @@ Diseño completo en `docs/fase1-modos-de-confirmacion.md` (enmienda E1 del MANIF
 | `payments/05-withdraw.bru` | pagador | Retira sus partes pendientes de `{{batch_id}}` |
 | `payments/06-reject.bru` | receptor | Rechaza su parte de `{{batch_id}}` ("no me llegó") |
 | `expenses/02-undo.bru` | autor | Deshace su gasto `{{movement_id}}` dentro de la ventana |
+| `notifications/01-list.bru` | autenticado | Sus últimas notificaciones + `unreadCount` |
+| `notifications/02-mark-read.bru` | autenticado | Marca `{{notification_id}}` como leída |
+| `notifications/03-subscription-token.bru` | autenticado | JWT para suscribirse a su propio tópico de Mercure |
 
 El dashboard (`projects/02-dashboard.bru`) devuelve en cada movimiento `actions`
 (`undo` / `withdraw` / `reject`) con lo que el socio logueado puede hacer ahora.
@@ -136,3 +139,4 @@ primera corrida del job (cada 5 min) o corriéndolo a mano:
 | `material_id` | Material a renombrar (`materials/03-rename.bru`) | manual — sacalo de `materials/01-search.bru` o de la respuesta de `materials/02-create.bru` |
 | `batch_id` | Batch del último pago creado | automático (`create-payment`) |
 | `movement_id` | Movimiento a cancelar o consultar en detalle | manual |
+| `notification_id` | Notificación a marcar como leída | manual — sacalo de `notifications/01-list.bru` |

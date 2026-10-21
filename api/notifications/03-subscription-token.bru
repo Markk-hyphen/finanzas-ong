@@ -1,0 +1,23 @@
+meta {
+  name: Notifications Subscription Token
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/api/notifications/subscription-token
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  JWT de Mercure scopeado al tópico privado del usuario
+  (`.../members/{id}/notifications`), para que el frontend abra un
+  EventSource y reciba el push en vivo sin conocer el secret del hub.
+  La DB sigue siendo la fuente de verdad: si Mercure está caído, GET
+  /api/notifications sigue funcionando por polling.
+}

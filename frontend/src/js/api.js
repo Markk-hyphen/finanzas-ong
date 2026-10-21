@@ -68,4 +68,7 @@ export const api = {
     getCapabilities: ()         => request('GET',  '/instance/capabilities'),
     updateSettings: (id, body)  => request('PATCH', `/projects/${id}/settings`, body),
     getMaterials:   (q)         => request('GET',  `/materials?q=${encodeURIComponent(q)}`),
+    getNotifications:        ()   => request('GET',  '/notifications'),
+    markNotificationRead:    (id) => request('POST', `/notifications/${id}/read`),
+    getNotificationsToken:   ()   => request('GET',  '/notifications/subscription-token'),
 };

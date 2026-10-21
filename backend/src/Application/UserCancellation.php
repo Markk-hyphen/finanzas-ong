@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application;
 
+use App\Domain\Model\ActivityEvent;
 use App\Domain\Service\CancellationPolicy;
 use App\Entity\Member;
 use App\Entity\Movement;
@@ -15,10 +16,17 @@ use Doctrine\ORM\EntityManagerInterface;
 // transaction: takes the same per-project lock as every other ledger write.
 class UserCancellation
 {
+    private const EVENT_FOR_KIND = [
+        // self_correction covers both expenses and payments; resolved per-target below.
+        CancellationPolicy::KIND_WITHDRAWAL => ActivityEvent::PAYMENT_WITHDRAWN,
+        CancellationPolicy::KIND_REJECTION  => ActivityEvent::PAYMENT_REJECTED,
+    ];
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly MovementLoader $movementLoader,
         private readonly CancellationPolicy $policy,
+        private readonly ActivityRecorder $activityRecorder,
     ) {}
 
     /**
@@ -55,7 +63,23 @@ class UserCancellation
                 continue;
             }
 
-            $this->em->persist(Movement::cancellationOf($target, $actor, $kind, $reason));
+            $cancellation = Movement::cancellationOf($target, $actor, $kind, $reason);
+            $this->em->persist($cancellation);
+
+            $eventType = $kind === CancellationPolicy::KIND_SELF_CORRECTION
+                ? ($target->getType() === Movement::TYPE_EXPENSE ? ActivityEvent::EXPENSE_UNDONE : ActivityEvent::PAYMENT_SELF_CORRECTED)
+                : self::EVENT_FOR_KIND[$kind];
+
+            $fromId = $target->getFromMember()?->getId();
+            $toId   = $target->getToMember()?->getId();
+            $this->activityRecorder->record(
+                $project,
+                $eventType,
+                $cancellation,
+                $actor,
+                fromMemberId: $fromId !== null ? (int) $fromId : null,
+                toMemberId: $toId !== null ? (int) $toId : null,
+            );
             $count++;
         }
 

@@ -1,0 +1,22 @@
+meta {
+  name: List Notifications
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/notifications
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Últimas 50 notificaciones del usuario autenticado + `unreadCount`. Se
+  generan solo para los eventos donde el silencio importa (MANIFIESTO E2):
+  pago optimistic recién creado (receptor), autoconfirmación por timeout
+  (ambos), retiro de pago pendiente (receptor), rechazo (pagador).
+}

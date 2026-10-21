@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use App\Application\ActivityRecorder;
 use App\Application\SchedulerStatus;
+use App\Domain\Model\ActivityEvent;
 use App\Entity\Movement;
 use App\Entity\Project;
 use Doctrine\DBAL\LockMode;
@@ -24,6 +26,7 @@ class AutoConfirmPaymentsCommand extends Command
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly SchedulerStatus $scheduler,
+        private readonly ActivityRecorder $activityRecorder,
     ) {
         parent::__construct();
     }
@@ -67,6 +70,7 @@ class AutoConfirmPaymentsCommand extends Command
 
                 foreach ($due as $payment) {
                     $payment->confirm(null, 'timeout', $now);
+                    $this->activityRecorder->record($payment->getProject(), ActivityEvent::PAYMENT_AUTO_CONFIRMED, $payment, null);
                 }
 
                 return count($due);

@@ -4,6 +4,7 @@ import './style.css';
 import { storage } from './js/api.js';
 import { esc } from './js/html.js';
 import { navigate } from './js/nav.js';
+import { initNotifications } from './js/notifications.js';
 import { renderLogin }     from './js/views/login.js';
 import { renderProjects }  from './js/views/projects.js';
 import { renderDashboard } from './js/views/dashboard.js';
@@ -38,6 +39,8 @@ async function dispatch() {
         navigate('/login');
         return;
     }
+
+    initNotifications();
 
     try {
         switch (view) {

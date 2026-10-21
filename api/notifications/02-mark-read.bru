@@ -1,0 +1,20 @@
+meta {
+  name: Mark Notification Read
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/api/notifications/{{notification_id}}/read
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Idempotente. 404 si la notificación no existe o no es del usuario
+  autenticado (nunca se expone si pertenece a otro).
+}

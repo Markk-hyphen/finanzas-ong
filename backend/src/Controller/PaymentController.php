@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Application\ActivityRecorder;
 use App\Application\MovementLoader;
 use App\Application\ShareLoader;
 use App\Application\UserCancellation;
 use App\Domain\Service\CancellationPolicy;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use App\Domain\Model\Allocation;
+use App\Domain\Model\ActivityEvent;
 use App\Domain\Model\ProjectSettings;
 use App\Domain\Service\AllocationValidator;
 use App\Domain\Service\BalanceCalculator;
@@ -39,6 +41,7 @@ class PaymentController extends AbstractController
         private readonly ProjectGuard $projectGuard,
         private readonly DecimalParser $decimals,
         private readonly UserCancellation $userCancellation,
+        private readonly ActivityRecorder $activityRecorder,
     ) {}
 
     #[Route('/projects/{id}/payments/preview', methods: ['POST'])]
@@ -102,6 +105,11 @@ class PaymentController extends AbstractController
                 $payment->setAutoConfirmAt($autoConfirmAt);
             }
             $this->em->persist($payment);
+
+            $eventType = $settings->confirmationMode === ProjectSettings::MODE_OPTIMISTIC
+                ? ActivityEvent::PAYMENT_CREATED_OPTIMISTIC
+                : ActivityEvent::PAYMENT_CREATED;
+            $this->activityRecorder->record($project, $eventType, $payment, $member);
         }
 
         $this->em->flush();
@@ -169,6 +177,7 @@ class PaymentController extends AbstractController
         $now = new \DateTimeImmutable();
         foreach ($payments as $payment) {
             $payment->confirm($member, 'receiver', $now);
+            $this->activityRecorder->record($payment->getProject(), ActivityEvent::PAYMENT_CONFIRMED, $payment, $member);
         }
 
         $this->em->flush();

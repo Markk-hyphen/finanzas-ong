@@ -279,3 +279,17 @@ gestión. Diseño completo en `docs/fase1-modos-de-confirmacion.md`.
   conservación (#5), validación del reparto en la salida (#6). Para validar pagos
   nuevos se usa el balance proyectado (pendientes reservados), no solo el
   confirmado.
+
+### E2 — Eventos de dominio, audit log y notificaciones in-app (2026-10-21)
+
+**Motivo:** E1 (`optimistic`/`auto_timeout`) puede confirmar o vencer un pago en
+silencio; sin aviso, el receptor pierde la chance de rechazar a tiempo. Diseño
+completo en `docs/fase2-eventos-notificaciones.md`.
+
+- Toda escritura al ledger pasa por `ActivityRecorder`, que registra el evento
+  en un **audit log append-only** (`audit_log`, todo evento, sin endpoint propio
+  por ahora) y, para un subconjunto angosto donde el silencio cuesta dinero o
+  una objeción perdida, crea una **notificación in-app** (`notification`) con
+  push opcional por Mercure (privado, por socio). La DB es la fuente de verdad;
+  el push es solo para no depender de refrescar a mano.
+- No reemplaza ni relaja ninguna regla existente — es puramente aditivo.

@@ -1,4 +1,5 @@
 import { storage } from './api.js';
+import { stopNotifications } from './notifications.js';
 
 export function navigate(path) {
     // Assigning the current hash fires no hashchange, so "go back to the same
@@ -25,7 +26,7 @@ export function setNav({ title = 'Finanzas ONG', back = null, logout = false } =
     const btnLogout = document.getElementById('btn-logout');
     if (logout) {
         btnLogout.classList.remove('d-none');
-        btnLogout.onclick = () => { storage.clear(); navigate('/login'); };
+        btnLogout.onclick = () => { stopNotifications(); storage.clear(); navigate('/login'); };
     } else {
         btnLogout.classList.add('d-none');
         btnLogout.onclick = null;
