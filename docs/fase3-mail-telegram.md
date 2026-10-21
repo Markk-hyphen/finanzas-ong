@@ -140,8 +140,11 @@ vincular/desvincular y una leyenda cuando la instancia no ofrece un canal.
 - **"Mi cuenta" en Chrome headless** (viewport de celular): estado real de dev
   (mail sí, Telegram no) y flujo simulado vincular → link → autodetección →
   desvincular, sin errores de JS.
-- **Falta probar:** Telegram con un bot real. Requiere crear el bot con
-  @BotFather y setear `TELEGRAM_DSN` + `TELEGRAM_BOT_USERNAME`.
+- **Telegram con el bot real** (`@FINANZAS_ONG_BOT`): vinculación por deep link
+  y *Start*, y aviso de un pago `auto_timeout` y de su retiro, `sent` al primer
+  intento. Esta prueba destapó un bug que el mock no podía ver: un token real
+  tiene la forma `<id>:<secreto>`, el parser del DSN lo separa en usuario y
+  contraseña, y `getUpdates` se llamaba solo con el id (502 en `/check`).
 
 ## 4. Pendientes encontrados durante la implementación
 
@@ -151,9 +154,11 @@ vincular/desvincular y una leyenda cuando la instancia no ofrece un canal.
   Se activó `protocol_version_compatibility 8`, que mantiene el comportamiento
   anterior. Migrar al modo moderno requiere bloques `issuer` en el Caddyfile y
   que MercureBundle firme los tokens con el claim `iss`.
-- **Tag flotante de la imagen base** (deuda de Oliva): conviene fijar una
-  versión exacta de FrankenPHP para que un rebuild no cambie el runtime sin aviso.
-- **Oliva tiene el mismo Caddyfile** (sin `subscriber_jwt` y sin el modo de compatibilidad).
+- **Tag flotante de la imagen base: resuelto acá.** El `Dockerfile` ahora fija
+  `dunglas/frankenphp:1.13.1-php8.3.35`. Para actualizar, cambiar el tag a
+  propósito y volver a probar Mercure (health, push privado).
+- **Oliva tiene el mismo Caddyfile** (sin `subscriber_jwt` y sin el modo de
+  compatibilidad) **y el mismo tag flotante** en su `Dockerfile`.
 
 ## 5. Fuera de alcance
 

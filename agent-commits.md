@@ -1,5 +1,44 @@
 # Registro de commits del agente
 
+## [DELIVERY] Fase 3 del upgrade: avisos por mail (obligatorio) y Telegram (opt-in)
+**Hash:** `b38b5ef..85fe21c` (rama, 7 commits) + merge `9658d2d` + fix `2d71dda` + este commit (imagen fijada, doc)
+**Rama:** `feat/notification-delivery` → `main`
+**Fecha:** 2026-10-21
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `docs/fase3-mail-telegram.md`, `MANIFIESTO.md` | nuevo/modificado | Diseño de la Fase 3, verificación y pendientes; enmienda E3 |
+| `backend/frankenphp/Caddyfile` | modificado | `protocol_version_compatibility 8` para el Mercure de FrankenPHP 1.13 (`b54c4ab`) |
+| `backend/Dockerfile` | modificado | Imagen base fijada en `dunglas/frankenphp:1.13.1-php8.3.35` (antes el tag flotante `1-php8.3`) |
+| `backend/composer.json`, `composer.lock`, `symfony.lock`, `config/reference.php` | modificado | `symfony/mailer`, `symfony/notifier`, `symfony/telegram-notifier` |
+| `backend/config/packages/mailer.yaml`, `notifier.yaml` | nuevo | DSNs por env (`MAILER_DSN`, `TELEGRAM_DSN`) |
+| `backend/.env`, `.env.example`, `backend/phpunit.dist.xml` | modificado | Variables nuevas; `null://null` = canal apagado |
+| `docker-compose.override.yml` | modificado | Mailpit en dev (UI `:8025`); backend y scheduler mandan ahí |
+| `backend/migrations/Version20261021150442.php` | nuevo | Tabla `notification_delivery` + columnas de Telegram en `members` |
+| `backend/src/Entity/NotificationDelivery.php` | nuevo | Bandeja de salida: una fila por notificación y canal, con estados y reintentos |
+| `backend/src/Entity/Member.php` | modificado | `chat_id`, hash del token de vinculación y vencimiento |
+| `backend/src/Domain/Service/DeliveryBackoff.php`, `NotificationMessage.php` | nuevo | Backoff 1/2/4/8 min (5 intentos) y textos sin montos ni contrapartes |
+| `backend/src/Application/NotificationChannels.php` | nuevo | Qué canales ofrece la instancia; token del bot (`2d71dda`: id + secreto) |
+| `backend/src/Application/NotificationDeliverer.php`, `TelegramBlocked.php` | nuevo | Crea las entregas en la transacción del evento y las manda en terminate; reclamo condicional; 403 de Telegram → desvincula |
+| `backend/src/Application/ActivityRecorder.php` | modificado | Crea las entregas junto con la notificación |
+| `backend/src/Application/TelegramLinker.php` | nuevo | Vinculación por deep link + `getUpdates` a demanda, sin webhook |
+| `backend/src/Command/DeliverNotificationsCommand.php`, `backend/scheduler/crontab` | nuevo/modificado | Barrido de reintentos cada minuto |
+| `backend/src/Controller/NotificationChannelController.php`, `InstanceController.php` | nuevo/modificado | Endpoints de canales y capacidades `email`/`telegram` |
+| `backend/tests/Domain/DeliveryBackoffTest.php`, `NotificationMessageTest.php` | nuevo | Tests de backoff y de textos |
+| `frontend/src/js/views/account.js`, `api.js`, `main.js`, `index.html` | nuevo/modificado | Vista "Mi cuenta" (`#/account`) y botón en la barra |
+| `api/notification-channels/*.bru`, `api/README.md` | nuevo/modificado | Requests Bruno de los 4 endpoints |
+
+### Justificación
+El aviso in-app de la Fase 2 solo sirve si el socio abre la app antes de que venza el plazo. La Fase 3 lo lleva afuera sin decidir de nuevo a quién avisar (eso sigue en `NotificationTargets`). Decisiones de Marcos: los mensajes no llevan montos ni contrapartes porque pasan por proveedores externos; el mail no tiene opt-out entre socios que se conocen (queda como hito "app vendible"); y el barrido por cron va incluido, porque sin él un primer intento fallido deja el mail sin salir nunca.
+
+- **Outbox en vez de mandar en la transacción.** Repite la lección de la revisión de la Fase 2: un proveedor caído no puede tirar un pago ni retener el lock del proyecto. Se probó con Mailpit apagado: el pago respondió 201 en 82 ms y el cron mandó el mail en el segundo intento. Se descartó Messenger porque Oliva no tiene un `worker` de prod.
+- **Telegram sin webhook.** El webhook necesita una URL pública y no se puede combinar con `getUpdates`. Para vincular una vez alcanza con consultar a demanda, y así funciona igual en dev.
+- **Imagen base fijada.** Un rebuild trajo FrankenPHP 1.13.1 sin aviso por el tag flotante, y su Mercure rechazó la config del hub. Cualquier deploy se habría caído igual. Se agregó el modo compatibilidad y se fijó la versión exacta. Oliva tiene el mismo tag flotante y el mismo Caddyfile: queda como deuda allá.
+- **Bug encontrado con el bot real (`2d71dda`).** El token real es `<id>:<secreto>` y el DSN lo partía; el mock usaba un token sin `:`. Por eso el bot real era una prueba necesaria y no un trámite.
+
+Verificado: mail de punta a punta en Mailpit y Telegram con `@FINANZAS_ONG_BOT` (vinculación y avisos de pago `auto_timeout` y de retiro, `sent` al primer intento). Pasan los 76 tests y `schema:validate`. El token del bot vive solo en el `.env` de la raíz (gitignored); en el VPS hay que cargar `TELEGRAM_DSN` y `TELEGRAM_BOT_USERNAME`.
+
 ## [ACTIVITY-REVIEW] Revisión post-Fase 2: push privado de Mercure, aislamiento del hub, schema y aviso auto_timeout (lote de 5 commits)
 **Hash:** `b78867d..e2d17d2` (`b78867d`, `4b18990`, `9f626bc`, `1bc0c3f`, `e2d17d2`)
 **Rama:** `main`
