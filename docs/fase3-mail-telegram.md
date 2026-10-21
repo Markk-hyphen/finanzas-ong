@@ -124,7 +124,38 @@ vincular/desvincular y una leyenda cuando la instancia no ofrece un canal.
 - El scheduler no monta `vendor`: hay que rebuildear su imagen al sumar los
   paquetes nuevos.
 
-## 3. Fuera de alcance
+## 3. Verificado en dev
+
+- **Mail de punta a punta:** pago `auto_timeout` real (proyecto 44, socios 95 → 94) y
+  retiro posterior. Llegaron los dos mails a Mailpit, `sent` al primer intento,
+  sin montos y con el link al proyecto.
+- **Proveedor caído:** con Mailpit apagado, el pago respondió 201 en 82 ms y la entrega
+  quedó `pending` con el error. Al volver Mailpit, `app:notifications:deliver` la
+  mandó en el segundo intento.
+- **Telegram con la API simulada** (no hay bot en dev): el `/start` con token
+  válido vincula el `chat_id`. El token es de un solo uso. Un token falso recibe
+  la respuesta "link vencido". Los chats de grupo se ignoran. Se confirma el
+  offset. La entrega con 200 queda `sent`; con 403 queda `skipped` y desvincula
+  al socio.
+- **"Mi cuenta" en Chrome headless** (viewport de celular): estado real de dev
+  (mail sí, Telegram no) y flujo simulado vincular → link → autodetección →
+  desvincular, sin errores de JS.
+- **Falta probar:** Telegram con un bot real. Requiere crear el bot con
+  @BotFather y setear `TELEGRAM_DSN` + `TELEGRAM_BOT_USERNAME`.
+
+## 4. Pendientes encontrados durante la implementación
+
+- **Mercure en modo moderno.** La imagen base usa el tag flotante
+  `dunglas/frankenphp:1-php8.3`; al rebuildear entró FrankenPHP 1.13.1, cuyo Mercure
+  rechaza `publisher_jwt`/`subscriber_jwt` fuera del modo de compatibilidad.
+  Se activó `protocol_version_compatibility 8`, que mantiene el comportamiento
+  anterior. Migrar al modo moderno requiere bloques `issuer` en el Caddyfile y
+  que MercureBundle firme los tokens con el claim `iss`.
+- **Tag flotante de la imagen base** (deuda de Oliva): conviene fijar una
+  versión exacta de FrankenPHP para que un rebuild no cambie el runtime sin aviso.
+- **Oliva tiene el mismo Caddyfile** (sin `subscriber_jwt` y sin el modo de compatibilidad).
+
+## 5. Fuera de alcance
 
 - Opt-out del mail (ver §2.1, hito futuro).
 - Elegir por socio *qué* eventos recibe por cada canal: los 5 eventos van por
