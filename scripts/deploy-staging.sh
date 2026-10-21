@@ -8,8 +8,6 @@
 #   1. Provisionar la DB de staging en el Postgres compartido:
 #        ~/infra/scripts/provision-postgres.sh <app>_staging_db <app>_staging_user
 #   2. Completar .env.staging (copiar de .env.staging.example y setear DATABASE_URL).
-#      (El alias del frontend en proxy_net se deriva del project name -p <app>-staging;
-#       no hay nada que reemplazar a mano.)
 #
 # Uso:
 #   ./scripts/deploy-staging.sh            # app_name = nombre del directorio actual
@@ -19,6 +17,11 @@ set -euo pipefail
 
 APP_NAME="${1:-$(basename "$PWD")}"
 STAGING_PROJECT="${APP_NAME}-staging"
+
+source "$(dirname "$0")/lib/project-guard.sh"
+source "$(dirname "$0")/lib/docker-prune.sh"
+assert_not_staging_name "$APP_NAME"
+assert_project_owned_here "$STAGING_PROJECT"
 
 COMPOSE=(docker compose -p "$STAGING_PROJECT"
   -f docker-compose.yml
@@ -51,6 +54,9 @@ docker exec "${STAGING_PROJECT}-backend-1" bin/console doctrine:fixtures:load --
 
 echo ">> estado:"
 "${COMPOSE[@]}" ps
+
+# La imagen que se acaba de reemplazar queda sin tag: sin esto, cada deploy suma ~750 MB.
+prune_build_leftovers
 
 echo ">> OK — staging corriendo en project '${STAGING_PROJECT}'."
 echo "   DB de staging es desechable. Para reiniciar con datos frescos:"

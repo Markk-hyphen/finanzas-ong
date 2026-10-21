@@ -29,10 +29,10 @@
 #   2. Descomentar/setear DATABASE_URL en .env.backend de prod apuntando al
 #      Postgres compartido (host `postgres`), no a `database` local — con el
 #      usuario/base que provisiona `infra/scripts/provision-postgres.sh`.
-#   3. Agregar en `infra/caddy/Caddyfile` el bloque del vhost apuntando al alias
-#      de red del frontend. El alias se DERIVA del project name (ver abajo): con
-#      `-p ong` es `ong-frontend`, con `-p ong-staging` es `ong-staging-frontend`.
-#      No hay que hardcodear un alias por app — basta el `-p <app>` obligatorio.
+#   3. El alias de `frontend` en `proxy_net` se deriva solo de
+#      `${COMPOSE_PROJECT_NAME}` (ver abajo) — NO hace falta tocar nada acá.
+#      Sí hay que agregar el bloque correspondiente en `infra/caddy/Caddyfile`
+#      apuntando a ese alias (`-p ong` → `ong-frontend`).
 #
 # Requiere Docker Compose >= 2.24 (tag de merge `!override`, usada para anular
 # `depends_on`/`ports`/`profiles` heredados del base — los merges de Compose
@@ -66,14 +66,7 @@ services:
       app_network:
       proxy_net:
         aliases:
-          # Alias DERIVADO del project name, NO hardcodeado. proxy_net es externa
-          # y compartida entre TODOS los stacks `-p` del VPS; un alias fijo
-          # (`ong-frontend`) hace que prod (-p ong) y staging (-p ong-staging)
-          # registren el MISMO alias → el reverse-proxy hace round-robin entre
-          # ambos frontends. Derivándolo del project name cada stack obtiene un
-          # alias único (-p ong → ong-frontend, -p ong-staging → ong-staging-frontend)
-          # y la colisión desaparece sin tocar docker-compose.staging.yml.
-          - ${COMPOSE_PROJECT_NAME:-app}-frontend
+          - ${COMPOSE_PROJECT_NAME:-app}-frontend   # ej. -p ong -> ong-frontend
 
 networks:
   # Red privada de ESTA app, project-scoped: con `-p ong` queda `ong_app_network`,

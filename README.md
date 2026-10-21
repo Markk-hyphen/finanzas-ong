@@ -62,6 +62,10 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml build
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
+The frontend is served by Caddy on **http://localhost**. The backend, database, RabbitMQ and scheduler are internal — never directly reachable from outside.
+
+> **Known gap:** there's no production `worker` service yet. If your app uses Messenger queues for real, add one to `docker-compose.prod.yml` (image `${COMPOSE_PROJECT_NAME}-backend:prod`, command `messenger:consume`, no exposed ports) before going live — `scheduler` is already covered in prod.
+
 Para deploy sobre infra compartida (VPS con Postgres/reverse-proxy compartidos), ver `CLAUDE.md` → sección "Infra compartida".
 
 ---
