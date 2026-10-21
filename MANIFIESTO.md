@@ -44,7 +44,7 @@ Estas reglas mandan sobre cualquier conveniencia de implementación. Violarlas e
 
 6. **Asignación de pagos vía estrategia, validada en la salida.** El reparto de un pago entre acreedores pasa por una interfaz `AllocationStrategy`. Cualquier reparto (automático o, a futuro, manual) debe validarse en su **resultado**, no en su entrada.
 
-7. **Confirmación bilateral de pagos.** Un pago nace `pendiente` y es **invisible al balance** hasta que el **receptor** lo confirma. Solo pagos confirmados entran al cálculo.
+7. **Confirmación bilateral de pagos.** Un pago nace `pendiente` y es **invisible al balance** hasta que el **receptor** lo confirma. Solo pagos confirmados entran al cálculo. *(Enmendada por E1: es el modo por defecto, no el único — ver §11.)*
 
 ---
 
@@ -161,7 +161,7 @@ Interfaz. Implementación MVP única:
 
 Dejar el seam listo para enchufar a futuro una estrategia `DirigidoPorUsuario` sin tocar nada aguas abajo (mismas filas de salida).
 
-### 4.6 Anulación (corrección)
+### 4.6 Anulación (corrección) *(ampliada por E1 — ver §11)*
 - Solo rol **admin** puede anular.
 - Insertar fila `tipo='anulacion'` con `anula_movimiento_id` → original y `motivo`.
 - El conjunto vigente excluye el original (y la anulación misma no entra al fold).
@@ -253,3 +253,29 @@ No implementar nada de esto salvo orden explícita posterior. Dejar solo los *ho
 - **Balance:** posición neta de un socio en un proyecto (deriva, no se almacena).
 - **Vigente:** movimiento no anulado.
 - **Batch:** conjunto de filas de pago generadas por una sola acción de pago.
+
+---
+
+## 11. Enmiendas
+
+Las reglas de arriba no se reescriben: se enmiendan acá, con fecha y motivo.
+
+### E1 — Modos de confirmación y anulación por el usuario (2026-10-21)
+
+**Motivo:** en el uso real la confirmación bilateral obligatoria resultó incómoda,
+y que solo el admin pueda corregir convierte cualquier error de tipeo en una
+gestión. Diseño completo en `docs/fase1-modos-de-confirmacion.md`.
+
+- **Regla #7:** pasa a ser el modo `required` (el default). Cada proyecto puede
+  elegir además `optimistic` (el pago nace confirmado y el receptor puede
+  rechazarlo dentro de un plazo) o `auto_timeout` (pendiente que se confirma solo
+  si el receptor no objeta en el plazo; solo en instancias con scheduler). El modo
+  se congela en cada pago al escribirlo.
+- **§4.6:** además del admin, pueden anular el pagador (retirar un pago pendiente),
+  el receptor (rechazar su parte) y el autor (deshacer lo propio dentro de una
+  ventana corta). Toda anulación sigue siendo una fila nueva (regla #4 intacta) y
+  registra su tipo.
+- **Invariantes que NO cambian:** append-only (#4), balances derivados (#3),
+  conservación (#5), validación del reparto en la salida (#6). Para validar pagos
+  nuevos se usa el balance proyectado (pendientes reservados), no solo el
+  confirmado.
