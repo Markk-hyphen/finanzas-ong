@@ -425,10 +425,14 @@ class ProjectController extends AbstractController
             'createdAt'      => $m->getCreatedAt()->format(\DateTimeInterface::RFC3339),
         ], $pending);
 
+        // Own balance with unconfirmed payments reserved: what is still payable.
+        $projected = $this->calculator->calculate($movements, $shares, includePending: true);
+
         return new JsonResponse([
             'project'              => ['id' => $project->getId(), 'name' => $project->getName()],
             'totalCost'            => $totalCost,
             'balances'             => $balancesData,
+            'myProjectedBalance'   => $projected[(int) $member->getId()] ?? '0.00',
             'movements'            => $movementsData,
             'pendingConfirmations' => $pendingData,
         ]);

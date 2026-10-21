@@ -13,11 +13,16 @@ class BalanceCalculator
     private const RAW_SCALE = 8; // extra precision for obligation calculation
 
     /**
+     * With $includePending, active pending payments count as if confirmed: the
+     * "projected" balance used to validate new payments, so debt or credit already
+     * covered by an unconfirmed payment cannot be paid twice. Displayed balances
+     * keep the default (confirmed only).
+     *
      * @param MovementRecord[] $movements  all movements of the project (including cancellations)
      * @param MemberShare[]    $shares
      * @return array<int, string>  memberId => balance (positive = creditor, negative = debtor)
      */
-    public function calculate(array $movements, array $shares): array
+    public function calculate(array $movements, array $shares, bool $includePending = false): array
     {
         $active    = $this->activeMovements($movements);
         $totalCost = $this->totalCost($active);
@@ -36,7 +41,7 @@ class BalanceCalculator
                 );
             }
 
-            if ($m->type === 'payment' && $m->status === 'confirmed') {
+            if ($m->type === 'payment' && ($m->status === 'confirmed' || $includePending)) {
                 $balances[$m->fromMemberId] = bcadd(
                     $balances[$m->fromMemberId] ?? '0.00',
                     $m->amount,

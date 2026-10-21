@@ -26,6 +26,9 @@ export async function renderDashboard(el, projectId) {
 
     const myBalance    = data.balances.find(b => b.memberId === user?.id);
     const myBalanceVal = myBalance ? Number(myBalance.balance) : 0;
+    // Debt still payable once unconfirmed payments are reserved
+    const myProjected  = Number(data.myProjectedBalance ?? myBalanceVal);
+    const hasPendingOut = myBalanceVal < 0 && myProjected > myBalanceVal;
 
     let heroBg = 'bg-success', heroLabel = 'Saldado', heroAmount = '';
     if (Math.abs(myBalanceVal) >= 0.01) {
@@ -49,8 +52,9 @@ export async function renderDashboard(el, projectId) {
         <!-- Acciones -->
         <div class="d-flex gap-2 mb-3">
             <button id="btn-expense" class="btn btn-outline-primary flex-fill">+ Gasto</button>
-            <button id="btn-payment" class="btn btn-outline-danger flex-fill" ${myBalanceVal >= 0 ? 'disabled title="No tenés deuda"' : ''}>Pagar</button>
+            <button id="btn-payment" class="btn btn-outline-danger flex-fill" ${myProjected >= 0 ? 'disabled title="No tenés deuda pendiente de pago"' : ''}>Pagar</button>
         </div>
+        ${hasPendingOut ? `<div class="alert alert-warning small py-2 mb-3">Tenés pagos esperando confirmación. Podés pagar hasta ${fmt(Math.max(0, -myProjected))} más.</div>` : ''}
 
         <!-- Balances del proyecto -->
         <div class="card border-0 shadow-sm mb-3">
