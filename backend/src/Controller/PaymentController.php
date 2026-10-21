@@ -127,7 +127,8 @@ class PaymentController extends AbstractController
             'SELECT m FROM App\Entity\Movement m
              WHERE m.batchId = :batchId
              AND m.toMember = :member
-             AND m.status = :pending'
+             AND m.status = :pending
+             AND NOT EXISTS (SELECT c.id FROM App\Entity\Movement c WHERE c.cancelsMovement = m)'
         )
         ->setParameter('batchId', $batchId)
         ->setParameter('member', $member)

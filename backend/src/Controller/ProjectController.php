@@ -286,6 +286,7 @@ class ProjectController extends AbstractController
              WHERE m.project = :project
              AND m.type = :payment
              AND m.status = :pending
+             AND NOT EXISTS (SELECT c.id FROM App\Entity\Movement c WHERE c.cancelsMovement = m)
              ORDER BY m.createdAt DESC'
         )
         ->setParameter('project', $project)
@@ -408,6 +409,7 @@ class ProjectController extends AbstractController
              AND m.type = :payment
              AND m.status = :pending
              AND m.toMember = :member
+             AND NOT EXISTS (SELECT c.id FROM App\Entity\Movement c WHERE c.cancelsMovement = m)
              ORDER BY m.createdAt DESC'
         )
         ->setParameter('project', $project)
