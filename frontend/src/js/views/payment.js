@@ -86,12 +86,17 @@ export async function renderPayment(el, projectId) {
         btn.textContent = 'Registrando…';
 
         try {
-            await api.createPayment(projectId, { amount: document.getElementById('f-amount').value });
+            const res = await api.createPayment(projectId, { amount: document.getElementById('f-amount').value });
+            const text = {
+                optimistic:   'Ya impacta en los balances. Quien lo recibe puede rechazarlo si no le llegó.',
+                auto_timeout: 'Está pendiente; si nadie lo objeta se confirma solo'
+                              + (res.autoConfirmAt ? ` el ${new Date(res.autoConfirmAt).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : '') + '.',
+            }[res.confirmationMode] ?? 'Está pendiente de confirmación por los receptores.';
             await Swal.fire({
                 icon: 'success',
                 title: 'Pago registrado',
-                text: 'Está pendiente de confirmación por los receptores.',
-                timer: 2500,
+                text,
+                timer: 3000,
                 showConfirmButton: false,
             });
             navigate(`/project/${projectId}`);

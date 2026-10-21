@@ -386,6 +386,7 @@ class ProjectController extends AbstractController
 
         return new JsonResponse([
             'project'        => ['id' => $project->getId(), 'name' => $project->getName()],
+            'settings'       => $this->serializeSettings($project->getSettings()),
             'totalCost'      => $totalCost,
             'balances'       => $balancesData,
             'movements'      => $movementsData,

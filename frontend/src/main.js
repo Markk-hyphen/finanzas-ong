@@ -9,6 +9,7 @@ import { renderProjects }  from './js/views/projects.js';
 import { renderDashboard } from './js/views/dashboard.js';
 import { renderExpense }   from './js/views/expense.js';
 import { renderPayment }   from './js/views/payment.js';
+import { renderSettings }  from './js/views/settings.js';
 
 function parseRoute(hash) {
     const path  = (hash.replace(/^#/, '') || '/login');
@@ -21,6 +22,7 @@ function parseRoute(hash) {
         if (!s2)                 return { view: 'dashboard', id: s1 };
         if (s2 === 'expense')    return { view: 'expense',   id: s1 };
         if (s2 === 'payment')    return { view: 'payment',   id: s1 };
+        if (s2 === 'settings')   return { view: 'settings',  id: s1 };
     }
     return { view: 'login' };
 }
@@ -44,6 +46,7 @@ async function dispatch() {
             case 'dashboard': await renderDashboard(el, id);     break;
             case 'expense':   await renderExpense(el, id);       break;
             case 'payment':   await renderPayment(el, id);       break;
+            case 'settings':  await renderSettings(el, id);      break;
             default:          navigate('/login');
         }
     } catch (e) {
