@@ -1,0 +1,22 @@
+meta {
+  name: Withdraw Payment (payer)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/api/payments/{{batch_id}}/withdraw
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  El pagador retira sus partes PENDIENTES del pago (anulación tipo
+  `withdrawal`), o corrige un pago `optimistic` dentro de la ventana de
+  autocorrección (`self_correction`). Las partes ya confirmadas no se tocan.
+  409 si no queda nada que pueda retirar.
+}

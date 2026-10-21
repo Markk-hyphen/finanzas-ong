@@ -1,0 +1,31 @@
+meta {
+  name: Update Project Settings (admin)
+  type: http
+  seq: 9
+}
+
+patch {
+  url: {{base_url}}/api/projects/{{project_id}}/settings
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "confirmationMode": "optimistic",
+    "objectionWindowHours": 48,
+    "selfCancelMinutes": 15
+  }
+}
+
+docs {
+  Todos los campos son opcionales. `confirmationMode`: `required` |
+  `optimistic` | `auto_timeout`. `auto_timeout` devuelve 409 si la instancia no
+  tiene un scheduler vivo (ver `instance/01-capabilities.bru`). El modo afecta
+  solo a pagos nuevos. Rangos: objectionWindowHours 1-720, selfCancelMinutes
+  0-1440 (0 desactiva la autocorrección).
+}

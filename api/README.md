@@ -103,6 +103,27 @@ Endpoints de escritura agregados para dejar de tocar Postgres a mano. Requieren 
 | `materials/02-create.bru` | cualquier socio | Crea un material, idempotente por nombre normalizado |
 | `materials/03-rename.bru` | admin | Renombra un material |
 
+## Modos de confirmación y anulación por el usuario (Fase 1)
+
+Diseño completo en `docs/fase1-modos-de-confirmacion.md` (enmienda E1 del MANIFIESTO).
+
+| Request | Quién | Qué hace |
+|---|---|---|
+| `projects/09-settings.bru` | admin | Modo de confirmación (`required` / `optimistic` / `auto_timeout`), plazo de objeción y ventana de autocorrección |
+| `instance/01-capabilities.bru` | autenticado | Si esta instancia puede ofrecer `auto_timeout` (hay scheduler vivo) |
+| `payments/05-withdraw.bru` | pagador | Retira sus partes pendientes de `{{batch_id}}` |
+| `payments/06-reject.bru` | receptor | Rechaza su parte de `{{batch_id}}` ("no me llegó") |
+| `expenses/02-undo.bru` | autor | Deshace su gasto `{{movement_id}}` dentro de la ventana |
+
+El dashboard (`projects/02-dashboard.bru`) devuelve en cada movimiento `actions`
+(`undo` / `withdraw` / `reject`) con lo que el socio logueado puede hacer ahora.
+
+**Probar `auto_timeout` en dev:** levantar el scheduler con
+`docker compose --profile cron up -d scheduler` (y rebuildear su imagen si
+cambió `composer.lock`: no monta `vendor`). La capacidad aparece tras la
+primera corrida del job (cada 5 min) o corriéndolo a mano:
+`docker compose exec scheduler bin/console app:payments:auto-confirm -v`.
+
 ## Variables del environment
 
 | Var | Qué es | Se setea |
