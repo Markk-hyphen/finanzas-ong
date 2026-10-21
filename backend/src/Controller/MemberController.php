@@ -43,6 +43,15 @@ class MemberController extends AbstractController
 
         $body = json_decode($request->getContent(), true) ?? [];
 
+        // Changing the login credentials requires the current password, so a
+        // leaked token alone is not enough to take over the account.
+        if (array_key_exists('email', $body) || array_key_exists('password', $body)) {
+            $current = (string) ($body['currentPassword'] ?? '');
+            if ($current === '' || !$this->hasher->isPasswordValid($member, $current)) {
+                return new JsonResponse(['error' => 'currentPassword is missing or incorrect.'], 403);
+            }
+        }
+
         if (array_key_exists('name', $body)) {
             $name = trim((string) $body['name']);
             if ($name === '') {
