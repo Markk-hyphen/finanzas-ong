@@ -6,11 +6,13 @@ namespace App\Controller;
 
 use App\Application\MovementLoader;
 use App\Domain\Service\AnomalyDetector;
+use App\Domain\Service\DecimalParser;
 use App\Domain\Service\ProjectGuard;
 use App\Entity\Material;
 use App\Entity\Member;
 use App\Entity\Movement;
 use App\Entity\Project;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -25,15 +27,22 @@ class ExpenseController extends AbstractController
         private readonly MovementLoader $movementLoader,
         private readonly AnomalyDetector $anomalyDetector,
         private readonly ProjectGuard $projectGuard,
+        private readonly DecimalParser $decimals,
     ) {}
 
     #[Route('/projects/{id}/expenses', methods: ['POST'])]
     public function create(int $id, Request $request): JsonResponse
     {
+        // Same per-project lock as payment creation: ledger writes are serialized.
+        return $this->em->wrapInTransaction(fn() => $this->persistExpense($id, $request));
+    }
+
+    private function persistExpense(int $id, Request $request): JsonResponse
+    {
         /** @var Member $member */
         $member = $this->getUser();
 
-        $project = $this->em->find(Project::class, $id);
+        $project = $this->em->find(Project::class, $id, LockMode::PESSIMISTIC_WRITE);
         if (!$project) {
             return new JsonResponse(['error' => 'Project not found.'], 404);
         }
@@ -57,10 +66,18 @@ class ExpenseController extends AbstractController
         }
 
         $body   = json_decode($request->getContent(), true) ?? [];
-        $amount = trim((string) ($body['amount'] ?? ''));
+        $amount = $this->decimals->parse($body['amount'] ?? null, 16, 2);
 
-        if ($amount === '' || !is_numeric($amount) || bccomp($amount, '0', 2) <= 0) {
-            return new JsonResponse(['error' => 'amount must be a positive number.'], 400);
+        if ($amount === null || bccomp($amount, '0', 2) <= 0) {
+            return new JsonResponse(['error' => 'amount must be a positive number with at most 2 decimals.'], 400);
+        }
+
+        $quantity = null;
+        if (isset($body['quantity']) && $body['quantity'] !== '') {
+            $quantity = $this->decimals->parse($body['quantity'], 15, 3);
+            if ($quantity === null) {
+                return new JsonResponse(['error' => 'quantity must be a non-negative number with at most 3 decimals.'], 400);
+            }
         }
 
         $material = null;
@@ -78,13 +95,13 @@ class ExpenseController extends AbstractController
 
         $expense = new Movement($project, Movement::TYPE_EXPENSE, $member);
         $expense->setFromMember($member);
-        $expense->setAmount(bcadd($amount, '0', 2));
+        $expense->setAmount($amount);
 
         if ($material !== null) {
             $expense->setMaterial($material);
         }
-        if (!empty($body['quantity'])) {
-            $expense->setQuantity((string) $body['quantity']);
+        if ($quantity !== null) {
+            $expense->setQuantity($quantity);
         }
 
         $this->em->persist($expense);

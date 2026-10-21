@@ -2,6 +2,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './style.css';
 
 import { storage } from './js/api.js';
+import { esc } from './js/html.js';
 import { navigate } from './js/nav.js';
 import { renderLogin }     from './js/views/login.js';
 import { renderProjects }  from './js/views/projects.js';
@@ -47,7 +48,7 @@ async function dispatch() {
         }
     } catch (e) {
         if (e.message !== 'Sesión expirada. Iniciá sesión nuevamente.') {
-            el.innerHTML = `<div class="alert alert-danger mt-3">${e.message}</div>`;
+            el.innerHTML = `<div class="alert alert-danger mt-3">${esc(e.message)}</div>`;
         }
     }
 }

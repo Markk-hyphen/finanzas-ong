@@ -9,11 +9,13 @@ use App\Application\ShareLoader;
 use App\Domain\Model\Allocation;
 use App\Domain\Service\AllocationValidator;
 use App\Domain\Service\BalanceCalculator;
+use App\Domain\Service\DecimalParser;
 use App\Domain\Service\ProjectGuard;
 use App\Domain\Strategy\ProportionalToCredit;
 use App\Entity\Member;
 use App\Entity\Movement;
 use App\Entity\Project;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,6 +33,7 @@ class PaymentController extends AbstractController
         private readonly ProportionalToCredit $strategy,
         private readonly AllocationValidator $validator,
         private readonly ProjectGuard $projectGuard,
+        private readonly DecimalParser $decimals,
     ) {}
 
     #[Route('/projects/{id}/payments/preview', methods: ['POST'])]
@@ -49,7 +52,14 @@ class PaymentController extends AbstractController
     #[Route('/projects/{id}/payments', methods: ['POST'])]
     public function create(int $id, Request $request): JsonResponse
     {
-        $result = $this->resolveAllocation($id, $request);
+        // Validate and persist under a lock on the project row: two concurrent
+        // payments would otherwise both validate against the same balances.
+        return $this->em->wrapInTransaction(fn() => $this->persistPayment($id, $request));
+    }
+
+    private function persistPayment(int $id, Request $request): JsonResponse
+    {
+        $result = $this->resolveAllocation($id, $request, lock: true);
         if ($result instanceof JsonResponse) {
             return $result;
         }
@@ -98,6 +108,12 @@ class PaymentController extends AbstractController
             return new JsonResponse(['error' => 'Batch not found.'], 404);
         }
 
+        /** @var Member $member */
+        $member = $this->getUser();
+        if (!$this->projectGuard->canView($member, $movements[0]->getProject())) {
+            return new JsonResponse(['error' => 'Access denied.'], 403);
+        }
+
         return new JsonResponse(array_map(fn(Movement $m) => [
             'id'           => $m->getId(),
             'type'         => $m->getType(),
@@ -119,7 +135,8 @@ class PaymentController extends AbstractController
             'SELECT m FROM App\Entity\Movement m
              WHERE m.batchId = :batchId
              AND m.toMember = :member
-             AND m.status = :pending'
+             AND m.status = :pending
+             AND NOT EXISTS (SELECT c.id FROM App\Entity\Movement c WHERE c.cancelsMovement = m)'
         )
         ->setParameter('batchId', $batchId)
         ->setParameter('member', $member)
@@ -140,12 +157,12 @@ class PaymentController extends AbstractController
     }
 
     /** @return JsonResponse|array{allocations: Allocation[], memberNames: array<int,string>, project: Project, member: Member} */
-    private function resolveAllocation(int $projectId, Request $request): JsonResponse|array
+    private function resolveAllocation(int $projectId, Request $request, bool $lock = false): JsonResponse|array
     {
         /** @var Member $member */
         $member = $this->getUser();
 
-        $project = $this->em->find(Project::class, $projectId);
+        $project = $this->em->find(Project::class, $projectId, $lock ? LockMode::PESSIMISTIC_WRITE : null);
         if (!$project) {
             return new JsonResponse(['error' => 'Project not found.'], 404);
         }
@@ -169,16 +186,24 @@ class PaymentController extends AbstractController
         }
 
         $body   = json_decode($request->getContent(), true) ?? [];
-        $amount = trim((string) ($body['amount'] ?? ''));
+        $amount = $this->decimals->parse($body['amount'] ?? null, 16, 2);
 
-        if ($amount === '' || !is_numeric($amount) || bccomp($amount, '0', 2) <= 0) {
-            return new JsonResponse(['error' => 'amount must be a positive number.'], 400);
+        if ($amount === null || bccomp($amount, '0', 2) <= 0) {
+            return new JsonResponse(['error' => 'amount must be a positive number with at most 2 decimals.'], 400);
         }
 
         $movements = $this->movementLoader->forProject($project);
         $shares    = $this->shareLoader->forProject($project);
-        $balances  = $this->calculator->calculate($movements, $shares);
+        $balances  = $this->calculator->calculate($movements, $shares, includePending: true);
         $memberId  = (int) $member->getId();
+
+        $confirmed = $this->calculator->calculate($movements, $shares)[$memberId] ?? '0.00';
+        if (bccomp($confirmed, '0', 2) < 0 && bccomp($balances[$memberId] ?? '0.00', '0', 2) >= 0) {
+            return new JsonResponse(
+                ['error' => 'Tu deuda ya está cubierta por pagos pendientes de confirmación.'],
+                422
+            );
+        }
 
         try {
             $allocations = $this->strategy->allocate($memberId, $amount, $balances);

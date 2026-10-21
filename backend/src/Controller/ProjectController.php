@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\Application\MovementLoader;
 use App\Application\ShareLoader;
 use App\Domain\Service\BalanceCalculator;
+use App\Domain\Service\DecimalParser;
 use App\Domain\Service\ProjectGuard;
 use App\Entity\Member;
 use App\Entity\MemberProject;
@@ -28,6 +29,7 @@ class ProjectController extends AbstractController
         private readonly ShareLoader $shareLoader,
         private readonly BalanceCalculator $calculator,
         private readonly ProjectGuard $projectGuard,
+        private readonly DecimalParser $decimals,
     ) {}
 
     #[Route('/projects', methods: ['POST'])]
@@ -98,6 +100,12 @@ class ProjectController extends AbstractController
             return new JsonResponse(['error' => 'Project not found.'], 404);
         }
 
+        /** @var Member $member */
+        $member = $this->getUser();
+        if (!$this->projectGuard->canView($member, $project)) {
+            return new JsonResponse(['error' => 'Access denied.'], 403);
+        }
+
         $memberships = $this->em->createQuery(
             'SELECT mp, m FROM App\Entity\MemberProject mp JOIN mp.member m WHERE mp.project = :project ORDER BY m.name ASC'
         )
@@ -147,12 +155,11 @@ class ProjectController extends AbstractController
             return new JsonResponse(['error' => 'This member is already part of the project.'], 409);
         }
 
-        $percentage = trim((string) ($body['percentage'] ?? ''));
-        if ($percentage === '' || !is_numeric($percentage)) {
-            return new JsonResponse(['error' => 'percentage must be a number.'], 400);
+        $percentage = $this->decimals->parse($body['percentage'] ?? null, 3, 2);
+        if ($percentage === null) {
+            return new JsonResponse(['error' => 'percentage must be a number with at most 2 decimals.'], 400);
         }
 
-        $percentage = bcadd($percentage, '0', 2);
         if (bccomp($percentage, '0', 2) <= 0 || bccomp($percentage, '100.00', 2) > 0) {
             return new JsonResponse(['error' => 'percentage must be greater than 0 and at most 100.'], 422);
         }
@@ -218,6 +225,12 @@ class ProjectController extends AbstractController
         $project = $this->em->find(Project::class, $id);
         if (!$project) {
             return new JsonResponse(['error' => 'Project not found.'], 404);
+        }
+
+        /** @var Member $member */
+        $member = $this->getUser();
+        if (!$this->projectGuard->canView($member, $project)) {
+            return new JsonResponse(['error' => 'Access denied.'], 403);
         }
 
         $movements = $this->movementLoader->forProject($project);
@@ -286,6 +299,7 @@ class ProjectController extends AbstractController
              WHERE m.project = :project
              AND m.type = :payment
              AND m.status = :pending
+             AND NOT EXISTS (SELECT c.id FROM App\Entity\Movement c WHERE c.cancelsMovement = m)
              ORDER BY m.createdAt DESC'
         )
         ->setParameter('project', $project)
@@ -408,6 +422,7 @@ class ProjectController extends AbstractController
              AND m.type = :payment
              AND m.status = :pending
              AND m.toMember = :member
+             AND NOT EXISTS (SELECT c.id FROM App\Entity\Movement c WHERE c.cancelsMovement = m)
              ORDER BY m.createdAt DESC'
         )
         ->setParameter('project', $project)
@@ -425,10 +440,14 @@ class ProjectController extends AbstractController
             'createdAt'      => $m->getCreatedAt()->format(\DateTimeInterface::RFC3339),
         ], $pending);
 
+        // Own balance with unconfirmed payments reserved: what is still payable.
+        $projected = $this->calculator->calculate($movements, $shares, includePending: true);
+
         return new JsonResponse([
             'project'              => ['id' => $project->getId(), 'name' => $project->getName()],
             'totalCost'            => $totalCost,
             'balances'             => $balancesData,
+            'myProjectedBalance'   => $projected[(int) $member->getId()] ?? '0.00',
             'movements'            => $movementsData,
             'pendingConfirmations' => $pendingData,
         ]);

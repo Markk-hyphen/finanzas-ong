@@ -99,7 +99,7 @@ Endpoints de escritura agregados para dejar de tocar Postgres a mano. Requieren 
 | `members/02-create.bru` | admin | Crea un socio (`admin: true/false` en el body) |
 | `members/03-edit.bru` | admin | Edita `name`/`email`/`active` de un socio |
 | `members/04-set-roles.bru` | admin | Otorga/revoca `ROLE_ADMIN` (un admin no puede auto-revocarse) |
-| `members/05-me-update.bru` | self | Edita el propio `name`/`email`/`password` — no toca proyectos/% |
+| `members/05-me-update.bru` | self | Edita el propio `name`/`email`/`password` — no toca proyectos/%. Cambiar `email` o `password` exige `currentPassword` en el body (403 si falta o es incorrecta) |
 | `materials/02-create.bru` | cualquier socio | Crea un material, idempotente por nombre normalizado |
 | `materials/03-rename.bru` | admin | Renombra un material |
 

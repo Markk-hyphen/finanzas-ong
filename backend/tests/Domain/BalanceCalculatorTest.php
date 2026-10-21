@@ -74,6 +74,44 @@ class BalanceCalculatorTest extends TestCase
         $this->assertSumIsZero($balances);
     }
 
+    // Projected balances reserve pending payments, so a second payment cannot
+    // re-use debt (or credit) that an unconfirmed payment already covers.
+    public function testProjectedBalanceReservesPendingPayments(): void
+    {
+        $movements = [
+            $this->expense(1, 1, '1000.00'),
+            $this->payment(2, 2, 1, '500.00', 'pending'),
+        ];
+        $shares = [
+            new MemberShare(1, '50.00'),
+            new MemberShare(2, '50.00'),
+        ];
+
+        $projected = $this->calc->calculate($movements, $shares, includePending: true);
+
+        $this->assertSame('0.00', $projected[1]);
+        $this->assertSame('0.00', $projected[2]);
+        $this->assertSumIsZero($projected);
+    }
+
+    public function testProjectedBalanceIgnoresCancelledPendingPayments(): void
+    {
+        $movements = [
+            $this->expense(1, 1, '1000.00'),
+            $this->payment(2, 2, 1, '500.00', 'pending'),
+            $this->cancellation(3, 2),
+        ];
+        $shares = [
+            new MemberShare(1, '50.00'),
+            new MemberShare(2, '50.00'),
+        ];
+
+        $projected = $this->calc->calculate($movements, $shares, includePending: true);
+
+        $this->assertSame('500.00', $projected[1]);
+        $this->assertSame('-500.00', $projected[2]);
+    }
+
     public function testExpenseOnlyAffectsFromMember(): void
     {
         $movements = [$this->expense(1, 1, '300.00')];

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Service;
 
+use App\Entity\Member;
 use App\Entity\Movement;
 use App\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,6 +27,23 @@ class ProjectGuard
     public function isActive(Project $project): bool
     {
         return bccomp($this->sumPercentage($project), '100.00', 2) === 0;
+    }
+
+    /** Lectura del proyecto (balances, movimientos, socios): admin o miembro del proyecto. */
+    public function canView(Member $member, Project $project): bool
+    {
+        if (in_array('ROLE_ADMIN', $member->getRoles(), true)) {
+            return true;
+        }
+
+        $count = $this->em->createQuery(
+            'SELECT COUNT(mp.project) FROM App\Entity\MemberProject mp WHERE mp.member = :member AND mp.project = :project'
+        )
+        ->setParameter('member', $member)
+        ->setParameter('project', $project)
+        ->getSingleScalarResult();
+
+        return (int) $count > 0;
     }
 
     /** True si el proyecto ya tiene algún movimiento (INV-2: congela la membresía). */

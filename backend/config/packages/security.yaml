@@ -13,22 +13,29 @@ security:
         login:
             pattern: ^/api/login
             stateless: true
+            user_checker: App\Security\MemberUserChecker
+            # Brute-force and password-hashing CPU guard: 5 failures/min per
+            # login+IP, 25/min per IP (Symfony's default global limiter).
+            login_throttling:
+                max_attempts: 5
+                interval: '1 minute'
             json_login:
                 check_path: /api/login
                 username_path: login
                 password_path: password
                 success_handler: lexik_jwt_authentication.handler.authentication_success
-                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+                failure_handler: App\Security\LoginFailureHandler
         api:
             pattern: ^/api
             stateless: true
+            user_checker: App\Security\MemberUserChecker
             jwt: ~
 
     access_control:
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
         # QA-only tooling (login-as, member discovery): public so testing needs no
-        # prior login. Every action in QaController 404s in prod
-        # (kernel.environment === 'prod'), so this is inert there.
+        # prior login. Every action in QaController 404s outside its allowlist
+        # of environments (dev, test, staging), so this is inert in prod.
         - { path: ^/api/qa, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 

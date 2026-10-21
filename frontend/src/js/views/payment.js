@@ -1,6 +1,7 @@
 import Swal from 'sweetalert2';
 import { api } from '../api.js';
 import { setNav, navigate } from '../nav.js';
+import { esc } from '../html.js';
 
 function fmt(amount) {
     return '$ ' + Number(amount).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -60,7 +61,7 @@ export async function renderPayment(el, projectId) {
 
             const list = document.getElementById('allocation-list');
             list.innerHTML = previewData.allocations.map(a =>
-                `<li>${a.toMemberName}: <strong>${fmt(a.amount)}</strong></li>`
+                `<li>${esc(a.toMemberName)}: <strong>${fmt(a.amount)}</strong></li>`
             ).join('');
 
             document.getElementById('preview-section').classList.remove('d-none');

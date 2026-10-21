@@ -19,3 +19,11 @@ body:json {
     "name": "Mi Nombre Actualizado"
   }
 }
+
+docs {
+  Cambiar solo `name` no pide nada más. Para cambiar `email` o `password` hay
+  que mandar también `currentPassword` (la contraseña actual); sin ella, o si
+  es incorrecta, responde 403. Ejemplo:
+  
+  { "password": "nuevaClave", "currentPassword": "claveActual" }
+}
