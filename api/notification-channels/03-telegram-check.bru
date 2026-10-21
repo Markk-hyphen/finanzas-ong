@@ -1,0 +1,21 @@
+meta {
+  name: Check Telegram Link
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/api/me/telegram/check
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Lee los /start pendientes del bot (getUpdates) y vincula a quien corresponda.
+  Devuelve los canales del usuario: telegram.linked = true si ya quedó vinculado.
+  502 si no se pudo contactar a Telegram.
+}

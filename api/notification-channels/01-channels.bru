@@ -1,0 +1,20 @@
+meta {
+  name: My Notification Channels
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/me/notification-channels
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Canales por los que le llegan los avisos al usuario (MANIFIESTO E3):
+  mail (obligatorio si la instancia lo ofrece) y Telegram (opt-in).
+}

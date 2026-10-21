@@ -117,6 +117,14 @@ Diseño completo en `docs/fase1-modos-de-confirmacion.md` (enmienda E1 del MANIF
 | `notifications/01-list.bru` | autenticado | Sus últimas notificaciones + `unreadCount` |
 | `notifications/02-mark-read.bru` | autenticado | Marca `{{notification_id}}` como leída |
 | `notifications/03-subscription-token.bru` | autenticado | JWT para suscribirse a su propio tópico de Mercure |
+| `notification-channels/01-channels.bru` | autenticado | Sus canales de aviso: mail (obligatorio) y Telegram (opt-in) |
+| `notification-channels/02-telegram-link.bru` | autenticado | Deep link `t.me/<bot>?start=<token>` para vincular Telegram |
+| `notification-channels/03-telegram-check.bru` | autenticado | Procesa los `/start` pendientes; `telegram.linked` dice si ya quedó vinculado |
+| `notification-channels/04-telegram-unlink.bru` | autenticado | Desvincula Telegram |
+
+**Mails en dev:** todo lo que manda la app cae en Mailpit (`http://localhost:8025`);
+no sale nada a internet. `instance/01-capabilities.bru` dice si la instancia
+ofrece `email` y `telegram`.
 
 El dashboard (`projects/02-dashboard.bru`) devuelve en cada movimiento `actions`
 (`undo` / `withdraw` / `reject`) con lo que el socio logueado puede hacer ahora.
