@@ -14,12 +14,17 @@ security:
             pattern: ^/api/login
             stateless: true
             user_checker: App\Security\MemberUserChecker
+            # Brute-force and password-hashing CPU guard: 5 failures/min per
+            # login+IP, 25/min per IP (Symfony's default global limiter).
+            login_throttling:
+                max_attempts: 5
+                interval: '1 minute'
             json_login:
                 check_path: /api/login
                 username_path: login
                 password_path: password
                 success_handler: lexik_jwt_authentication.handler.authentication_success
-                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+                failure_handler: App\Security\LoginFailureHandler
         api:
             pattern: ^/api
             stateless: true

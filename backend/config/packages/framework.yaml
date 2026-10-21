@@ -1,6 +1,17 @@
 # see https://symfony.com/doc/current/reference/configuration/framework.html
+parameters:
+    # Reverse proxies whose X-Forwarded-* headers are trusted for the client IP
+    # (login throttling keys on it). The backend is only reached through the
+    # frontend Caddy (and the shared-infra proxy), all on private Docker
+    # networks. Override with a real TRUSTED_PROXIES env var if that changes.
+    env(TRUSTED_PROXIES): 'PRIVATE_SUBNETS'
+
 framework:
     secret: '%env(APP_SECRET)%'
+
+    # Real client IP behind the reverse proxies (see TRUSTED_PROXIES in .env)
+    trusted_proxies: '%env(TRUSTED_PROXIES)%'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-host', 'x-forwarded-port']
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true
