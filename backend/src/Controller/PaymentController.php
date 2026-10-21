@@ -9,6 +9,7 @@ use App\Application\ShareLoader;
 use App\Domain\Model\Allocation;
 use App\Domain\Service\AllocationValidator;
 use App\Domain\Service\BalanceCalculator;
+use App\Domain\Service\DecimalParser;
 use App\Domain\Service\ProjectGuard;
 use App\Domain\Strategy\ProportionalToCredit;
 use App\Entity\Member;
@@ -32,6 +33,7 @@ class PaymentController extends AbstractController
         private readonly ProportionalToCredit $strategy,
         private readonly AllocationValidator $validator,
         private readonly ProjectGuard $projectGuard,
+        private readonly DecimalParser $decimals,
     ) {}
 
     #[Route('/projects/{id}/payments/preview', methods: ['POST'])]
@@ -184,10 +186,10 @@ class PaymentController extends AbstractController
         }
 
         $body   = json_decode($request->getContent(), true) ?? [];
-        $amount = trim((string) ($body['amount'] ?? ''));
+        $amount = $this->decimals->parse($body['amount'] ?? null, 16, 2);
 
-        if ($amount === '' || !is_numeric($amount) || bccomp($amount, '0', 2) <= 0) {
-            return new JsonResponse(['error' => 'amount must be a positive number.'], 400);
+        if ($amount === null || bccomp($amount, '0', 2) <= 0) {
+            return new JsonResponse(['error' => 'amount must be a positive number with at most 2 decimals.'], 400);
         }
 
         $movements = $this->movementLoader->forProject($project);

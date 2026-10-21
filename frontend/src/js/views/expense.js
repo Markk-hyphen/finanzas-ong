@@ -34,7 +34,7 @@ export async function renderExpense(el, projectId) {
                     Cantidad <span class="text-muted fw-normal small">(opcional)</span>
                 </label>
                 <input type="number" id="f-qty" class="form-control"
-                       placeholder="Ej: 2.5" min="0" step="any" inputmode="decimal" />
+                       placeholder="Ej: 2.5" min="0" step="0.001" inputmode="decimal" />
             </div>
 
             <div id="expense-err" class="alert alert-danger d-none small py-2 mb-3"></div>

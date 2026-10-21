@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\Application\MovementLoader;
 use App\Application\ShareLoader;
 use App\Domain\Service\BalanceCalculator;
+use App\Domain\Service\DecimalParser;
 use App\Domain\Service\ProjectGuard;
 use App\Entity\Member;
 use App\Entity\MemberProject;
@@ -28,6 +29,7 @@ class ProjectController extends AbstractController
         private readonly ShareLoader $shareLoader,
         private readonly BalanceCalculator $calculator,
         private readonly ProjectGuard $projectGuard,
+        private readonly DecimalParser $decimals,
     ) {}
 
     #[Route('/projects', methods: ['POST'])]
@@ -153,12 +155,11 @@ class ProjectController extends AbstractController
             return new JsonResponse(['error' => 'This member is already part of the project.'], 409);
         }
 
-        $percentage = trim((string) ($body['percentage'] ?? ''));
-        if ($percentage === '' || !is_numeric($percentage)) {
-            return new JsonResponse(['error' => 'percentage must be a number.'], 400);
+        $percentage = $this->decimals->parse($body['percentage'] ?? null, 3, 2);
+        if ($percentage === null) {
+            return new JsonResponse(['error' => 'percentage must be a number with at most 2 decimals.'], 400);
         }
 
-        $percentage = bcadd($percentage, '0', 2);
         if (bccomp($percentage, '0', 2) <= 0 || bccomp($percentage, '100.00', 2) > 0) {
             return new JsonResponse(['error' => 'percentage must be greater than 0 and at most 100.'], 422);
         }
