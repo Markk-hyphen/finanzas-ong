@@ -53,11 +53,23 @@ async function connectLive(panel) {
         eventSource?.close();
         const url = new URL('/.well-known/mercure', window.location.origin);
         url.searchParams.append('authorization', token);
+        // The hub rejects a subscription without topics (400); the ones this
+        // member may read are the token's own `subscribe` claim.
+        for (const topic of subscribeTopics(token)) url.searchParams.append('topic', topic);
         eventSource = new EventSource(url);
         eventSource.onmessage = () => refresh(panel);
         eventSource.onerror = () => { eventSource?.close(); eventSource = null; };
     } catch {
         // No live push (e.g. logged out mid-request); polling still covers it.
+    }
+}
+
+function subscribeTopics(jwt) {
+    try {
+        const payload = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        return payload.mercure?.subscribe ?? [];
+    } catch {
+        return [];
     }
 }
 
