@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Domain\Service\CancellationPolicy;
 use App\Entity\Member;
 use App\Entity\Movement;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -135,9 +136,6 @@ class MovementController extends AbstractController
 
     private function buildCancellation(Movement $target, Member $admin, string $reason): Movement
     {
-        $cancellation = new Movement($target->getProject(), Movement::TYPE_CANCELLATION, $admin);
-        $cancellation->setCancelsMovement($target);
-        $cancellation->setReason($reason);
-        return $cancellation;
+        return Movement::cancellationOf($target, $admin, CancellationPolicy::KIND_ADMIN, $reason);
     }
 }

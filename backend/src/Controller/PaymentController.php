@@ -147,8 +147,9 @@ class PaymentController extends AbstractController
             return new JsonResponse(['error' => 'No pending payments found for this batch.'], 404);
         }
 
+        $now = new \DateTimeImmutable();
         foreach ($payments as $payment) {
-            $payment->setStatus(Movement::STATUS_CONFIRMED);
+            $payment->confirm($member, 'receiver', $now);
         }
 
         $this->em->flush();

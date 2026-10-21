@@ -58,6 +58,26 @@ class Movement
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $reason = null;
 
+    // Cancellations only: admin | withdrawal | self_correction | rejection
+    #[ORM\Column(name: 'cancellation_kind', type: 'text', nullable: true)]
+    private ?string $cancellationKind = null;
+
+    // Payments only: who/when/how the payment became confirmed
+    // (confirmedBy is null for optimistic and timeout confirmations).
+    #[ORM\Column(name: 'confirmed_at', type: 'datetimetz_immutable', nullable: true)]
+    private ?\DateTimeImmutable $confirmedAt = null;
+
+    #[ORM\ManyToOne(targetEntity: Member::class)]
+    #[ORM\JoinColumn(name: 'confirmed_by_id', nullable: true)]
+    private ?Member $confirmedBy = null;
+
+    #[ORM\Column(name: 'confirmed_via', type: 'text', nullable: true)]
+    private ?string $confirmedVia = null;
+
+    // auto_timeout payments: frozen at creation, the scheduler confirms after it
+    #[ORM\Column(name: 'auto_confirm_at', type: 'datetimetz_immutable', nullable: true)]
+    private ?\DateTimeImmutable $autoConfirmAt = null;
+
     #[ORM\ManyToOne(targetEntity: Material::class)]
     #[ORM\JoinColumn(name: 'material_id', nullable: true)]
     private ?Material $material = null;
@@ -106,6 +126,31 @@ class Movement
     public function setQuantity(?string $quantity): void { $this->quantity = $quantity; }
     public function getReferenceValue(): ?string { return $this->referenceValue; }
     public function setReferenceValue(?string $value): void { $this->referenceValue = $value; }
+    public function getCancellationKind(): ?string { return $this->cancellationKind; }
+    public function setCancellationKind(?string $kind): void { $this->cancellationKind = $kind; }
+    public function getConfirmedAt(): ?\DateTimeImmutable { return $this->confirmedAt; }
+    public function getConfirmedBy(): ?Member { return $this->confirmedBy; }
+    public function getConfirmedVia(): ?string { return $this->confirmedVia; }
+    public function getAutoConfirmAt(): ?\DateTimeImmutable { return $this->autoConfirmAt; }
+    public function setAutoConfirmAt(?\DateTimeImmutable $at): void { $this->autoConfirmAt = $at; }
+
+    public static function cancellationOf(Movement $target, Member $author, string $kind, string $reason): self
+    {
+        $cancellation = new self($target->getProject(), self::TYPE_CANCELLATION, $author);
+        $cancellation->setCancelsMovement($target);
+        $cancellation->setCancellationKind($kind);
+        $cancellation->setReason($reason);
+        return $cancellation;
+    }
+
+    public function confirm(?Member $by, string $via, \DateTimeImmutable $at): void
+    {
+        $this->status       = self::STATUS_CONFIRMED;
+        $this->confirmedBy  = $by;
+        $this->confirmedVia = $via;
+        $this->confirmedAt  = $at;
+    }
+
     public function getCreatedBy(): Member { return $this->createdBy; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
 }
