@@ -1,6 +1,7 @@
 import Swal from 'sweetalert2';
 import { api, storage } from '../api.js';
 import { setNav, navigate } from '../nav.js';
+import { esc } from '../html.js';
 
 function fmt(amount) {
     return '$ ' + Number(amount).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -87,7 +88,7 @@ export async function renderDashboard(el, projectId) {
         const li = document.createElement('li');
         li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
         li.innerHTML = `
-            <span class="small">${b.name}${b.memberId === user?.id ? ' <em class="text-muted">(yo)</em>' : ''}</span>
+            <span class="small">${esc(b.name)}${b.memberId === user?.id ? ' <em class="text-muted">(yo)</em>' : ''}</span>
             <span>${balanceChip(b.balance)}</span>
         `;
         balancesList.appendChild(li);
@@ -101,19 +102,19 @@ export async function renderDashboard(el, projectId) {
         for (const m of data.movements) {
             const li  = document.createElement('li');
             li.className = 'list-group-item py-2';
-            const lbl = { expense: 'Gasto', payment: 'Pago' }[m.type] ?? m.type;
+            const lbl = { expense: 'Gasto', payment: 'Pago' }[m.type] ?? esc(m.type);
             const statusBadge = m.status === 'pending'
                 ? '<span class="badge bg-warning text-dark ms-1" style="font-size:.65rem">pendiente</span>' : '';
             li.innerHTML = `
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
                         <span class="small fw-semibold">${lbl}</span>${statusBadge}
-                        ${m.material ? `<br><span class="text-muted small">${m.material}${m.quantity ? ' × ' + m.quantity : ''}</span>` : ''}
+                        ${m.material ? `<br><span class="text-muted small">${esc(m.material)}${m.quantity ? ' × ' + esc(m.quantity) : ''}</span>` : ''}
                         <br><span class="text-muted" style="font-size:.72rem">${fmtDate(m.createdAt)}</span>
                     </div>
                     <div class="text-end">
                         <span class="fw-semibold small">${fmt(m.amount)}</span>
-                        ${isAdmin ? `<br><button class="btn btn-link btn-sm p-0 text-danger cancel-btn" data-id="${m.id}" style="font-size:.72rem">Anular</button>` : ''}
+                        ${isAdmin ? `<br><button class="btn btn-link btn-sm p-0 text-danger cancel-btn" data-id="${esc(m.id)}" style="font-size:.72rem">Anular</button>` : ''}
                     </div>
                 </div>
             `;
@@ -128,10 +129,10 @@ export async function renderDashboard(el, projectId) {
         li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
         li.innerHTML = `
             <div class="small">
-                <span class="fw-semibold">${fmt(p.amount)}</span> de ${p.fromMemberName}
+                <span class="fw-semibold">${fmt(p.amount)}</span> de ${esc(p.fromMemberName)}
                 <br><span class="text-muted" style="font-size:.72rem">${fmtDate(p.createdAt)}</span>
             </div>
-            <button class="btn btn-success btn-sm confirm-btn" data-batch="${p.batchId}">Confirmar</button>
+            <button class="btn btn-success btn-sm confirm-btn" data-batch="${esc(p.batchId)}">Confirmar</button>
         `;
         pendingList.appendChild(li);
     }

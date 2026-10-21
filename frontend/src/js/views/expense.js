@@ -1,6 +1,7 @@
 import Swal from 'sweetalert2';
 import { api } from '../api.js';
 import { setNav, navigate } from '../nav.js';
+import { esc } from '../html.js';
 
 export async function renderExpense(el, projectId) {
     setNav({ title: 'Registrar gasto', back: `/project/${projectId}` });
@@ -55,7 +56,7 @@ export async function renderExpense(el, projectId) {
                 if (!results.length) { sug.classList.add('d-none'); return; }
                 sug.innerHTML = results.map(m =>
                     `<button type="button" class="list-group-item list-group-item-action small py-2"
-                             data-id="${m.id}" data-name="${m.name}">${m.name}</button>`
+                             data-id="${esc(m.id)}" data-name="${esc(m.name)}">${esc(m.name)}</button>`
                 ).join('');
                 sug.classList.remove('d-none');
                 sug.querySelectorAll('button').forEach(b => {
