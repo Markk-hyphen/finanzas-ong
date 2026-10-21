@@ -1,5 +1,43 @@
 # Registro de commits del agente
 
+## [ACTIVITY] Fase 2 del upgrade: eventos de dominio, audit log y notificaciones in-app
+**Hash:** `df1592a`
+**Rama:** `main`
+**Fecha:** 2026-10-21
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `docs/fase2-eventos-notificaciones.md` | nuevo | Diseño de la Fase 2 + enmienda E2 al `MANIFIESTO.md` |
+| `backend/src/Domain/Model/ActivityEvent.php` | nuevo | Vocabulario único de tipos de evento (10 constantes) |
+| `backend/src/Domain/Service/NotificationTargets.php` | nuevo | Pura: decide a quién notificar para cada evento (solo 4 de los 10) |
+| `backend/src/Entity/AuditLog.php` | nuevo | Tabla append-only: todo evento, sin excepción |
+| `backend/src/Entity/Notification.php` | nuevo | Notificación por destinatario, con `read_at` |
+| `backend/src/Application/ActivityRecorder.php` | nuevo | Punto único: escribe el audit log y, si aplica, la notificación + push |
+| `backend/src/Application/NotificationPublisher.php` | nuevo | Wrapper del hub Mercure: publica privado por socio, emite JWT de suscriptor |
+| `backend/src/Controller/NotificationController.php` | nuevo | `GET /api/notifications`, `POST /{id}/read`, `GET /subscription-token` |
+| `backend/migrations/Version20261021140355.php` | nuevo | Tablas `audit_log`/`notification` + índice parcial de no-leídas |
+| `backend/src/Application/UserCancellation.php` | modificado | Llama a `ActivityRecorder` por cada anulación (withdrawal/rejection/self_correction) |
+| `backend/src/Controller/PaymentController.php` | modificado | Registra `payment_created(_optimistic)` y `payment_confirmed` |
+| `backend/src/Controller/ExpenseController.php` | modificado | Registra `expense_created` |
+| `backend/src/Controller/MovementController.php` | modificado | Registra `movement_cancelled_admin` |
+| `backend/src/Command/AutoConfirmPaymentsCommand.php` | modificado | Registra `payment_auto_confirmed` por cada pago vencido |
+| `backend/tests/Domain/NotificationTargetsTest.php` | nuevo | 6 tests de la lógica de targeting |
+| `frontend/src/js/notifications.js` | nuevo | Campanita: polling 30s + `EventSource` a Mercure, panel con marcar-leída |
+| `frontend/index.html`, `frontend/src/js/api.js`, `frontend/src/js/nav.js`, `frontend/src/main.js`, `frontend/src/style.css` | modificado | Botón de notificaciones en el nav, llamadas API nuevas, stop al logout |
+| `api/notifications/*.bru`, `api/README.md` | nuevo/modificado | Requests Bruno de los 3 endpoints nuevos |
+
+### Justificación
+Cierra el punto ciego que dejó la Fase 1: un pago `optimistic` nace confirmado y `auto_timeout` se autoconfirma solo si nadie objeta — en ambos casos, sin aviso, el afectado puede perder la chance de actuar a tiempo. El diseño completo se mostró a Marcos en el chat antes de implementar (incluyendo la tabla de qué evento notifica a quién) y se implementó tal cual se aprobó.
+
+**Por qué audit log y notification son tablas separadas (no una sola "activity"):** tienen política de escritura distinta — `audit_log` recibe los 10 tipos de evento sin excepción (historial completo para un futuro "actividad del proyecto"), `notification` solo 4, los que `NotificationTargets` decide que le importan a alguien específico. Mezclarlas forzaría a elegir entre inflar la bandeja de notificaciones con ruido o perder historial completo del proyecto.
+
+**Por qué `NotificationTargets` es una clase pura separada de `ActivityRecorder`:** sigue el mismo patrón que `CancellationPolicy` (decisión de dominio, testeable sin Doctrine) — la decisión de "quién se entera de qué" es la parte con reglas de negocio reales; `ActivityRecorder` es solo el mecanismo de escritura (Application layer, igual que `UserCancellation`/`MovementLoader`, sin test propio por convención del proyecto).
+
+**Por qué Mercure no necesitó tocar el Caddyfile ni sumar un secret nuevo:** el hub "default" ya configurado (`mercure.yaml`) expone un `TokenFactoryInterface` capaz de emitir JWT de suscriptor arbitrarios con el mismo secret que ya usa para publicar — alcanza con pedirle un token scopeado al tópico del socio (`subscribe: [topic]`) en vez de cablear una clave de suscriptor separada. Verificado que el hub acepta ese JWT para un tópico `private: true` (200 + `text/event-stream`); la entrega en vivo por SSE no se pudo confirmar con `curl` en este entorno (tampoco la recibe el demo público preexistente por ese medio), así que queda pendiente de confirmar con un browser real — no es indicio de que el código nuevo esté mal, la polling cada 30 s cubre el caso igual.
+
+**Por qué el flush parcial dentro de `ActivityRecorder`:** publicar en Mercure necesita el id autogenerado de la `Notification`, así que hay que flushear antes de publicar. Como todo corre dentro de la transacción del caller (mismo patrón que el resto del ledger), un flush de más ahí no cambia el alcance de la transacción — si algo falla después, todo hace rollback igual.
+
 ## [CONFIRMATION-MODES] Fase 1 del upgrade: modos de confirmación por proyecto + anulación por el usuario (lote de 7 commits)
 **Hash:** merge a `main` (commits `3b8a6ff`..`f4db3e5`)
 **Rama:** `feat/confirmation-modes` → mergeada a `main`
