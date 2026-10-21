@@ -1,5 +1,24 @@
 # Registro de commits del agente
 
+## [FIX] El material tipeado sin elegir de la lista se descartaba
+**Hash:** `16cf80e`
+**Rama:** `feat/ui-upgrade`
+**Fecha:** 2026-10-21
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `frontend/src/js/api.js` | modificado | `createMaterial(name)` → `POST /api/materials` (endpoint existente, idempotente) |
+| `frontend/src/js/views/expense.js` | modificado | El combobox ofrece "Crear «X»" si nada coincide exacto; al guardar, el texto tipeado sin elegir crea o reutiliza el material |
+| `frontend/src/css/components.css` | modificado | Estilo de la opción "Crear" |
+
+### Justificación
+Reportado por Marcos: había cargado gastos de "alambre" y el material nunca aparecía en el autocomplete. Lo acordado al diseñar la app era que un material inexistente se crea, y el backend lo soporta desde la API completa (`POST /api/materials`, dedupe por nombre normalizado → devuelve el existente). Pero el frontend **nunca lo llamó**: si se tipeaba sin elegir una sugerencia, el texto se descartaba en silencio y el gasto quedaba sin material (bug presente desde la primera versión del frontend). Ojo: el acuerdo no está escrito en el `MANIFIESTO` (solo pide autocomplete para evitar duplicados).
+
+Se eligió crear al guardar (y no obligar a elegir de la lista) para que el flujo rápido de "tipeo y guardo" funcione, apoyado en el dedupe del backend para no duplicar. La comparación "coincidencia exacta" del front replica `Material::normalize` (minúsculas, sin tildes) solo para decidir si mostrar "Crear"; quien decide de verdad es el backend. Los gastos viejos de alambre siguen sin material: el texto nunca llegó al backend, no hay forma de recuperarlo.
+
+Verificado E2E: "Alambre" creado desde la lista y "ALAMBRE" tipeado sin elegir reutiliza el mismo material (id 9, sin duplicado).
+
 ## [UI] Upgrade visual: design system propio, layout desktop y flujos más fluidos
 **Hash:** `a77b0dd`
 **Rama:** `feat/ui-upgrade`
