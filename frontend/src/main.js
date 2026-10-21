@@ -11,6 +11,7 @@ import { renderDashboard } from './js/views/dashboard.js';
 import { renderExpense }   from './js/views/expense.js';
 import { renderPayment }   from './js/views/payment.js';
 import { renderSettings }  from './js/views/settings.js';
+import { renderAccount }   from './js/views/account.js';
 
 function parseRoute(hash) {
     const path  = (hash.replace(/^#/, '') || '/login');
@@ -19,6 +20,7 @@ function parseRoute(hash) {
 
     if (!s0 || s0 === 'login')   return { view: 'login' };
     if (s0 === 'projects')       return { view: 'projects' };
+    if (s0 === 'account')        return { view: 'account' };
     if (s0 === 'project' && s1) {
         if (!s2)                 return { view: 'dashboard', id: s1 };
         if (s2 === 'expense')    return { view: 'expense',   id: s1 };
@@ -42,6 +44,10 @@ async function dispatch() {
 
     initNotifications();
 
+    const btnAccount = document.getElementById('btn-account');
+    btnAccount.classList.toggle('d-none', !storage.getToken());
+    btnAccount.onclick = () => navigate('/account');
+
     try {
         switch (view) {
             case 'login':     await renderLogin(el);             break;
@@ -50,6 +56,7 @@ async function dispatch() {
             case 'expense':   await renderExpense(el, id);       break;
             case 'payment':   await renderPayment(el, id);       break;
             case 'settings':  await renderSettings(el, id);      break;
+            case 'account':   await renderAccount(el);           break;
             default:          navigate('/login');
         }
     } catch (e) {
