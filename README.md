@@ -35,6 +35,17 @@ A framework built on PHP, FrankenPHP and a stack of base images lives or dies by
 
 The mechanics and the per-layer reasoning live under [Staying up to date](#staying-up-to-date-forks) and in [`docs/oliva/actualizaciones.md`](docs/oliva/actualizaciones.md).
 
+## Built for agentic development
+
+Oliva treats the AI agent (or a new human) as an executor that needs guardrails, and ships them with the code. The rules travel with every fork — they're not a local IDE setup.
+
+- **`AGENTS.md` per repo** — operating rules, boundaries and conventions an agent reads before touching code.
+- **File ownership** (`scripts/oliva/owned-paths.txt`) — which files are framework-owned and off-limits to forks. A convention, not a lock: git won't stop you, but `sync.sh` classifies every edit as a conflict and surfaces drift on the next sync.
+- **Enforced gates** — `release.sh` refuses to cut a version without its `UPGRADING.md` section (the only channel Oliva has to its forks); the project guard (`scripts/lib/project-guard.sh`) aborts a deploy that would collide with another app on the same host.
+- **Maintenance cadence** — `deps.sh due` tells an agent when a freshness cycle or a security audit is due, so patching isn't left to memory.
+
+None of this lives in a personal config — it's in the repo, inspectable and versioned.
+
 ## Stack
 
 | Capa | Tecnología |
@@ -314,7 +325,7 @@ framework deliberately does *not* verify.
 
 > Deploying several Oliva apps onto one host with a shared Postgres / RabbitMQ /
 > reverse-proxy is supported through the opt-in `docker-compose.shared-infra.yml` overlay.
-> The per-app runbook lives in `CLAUDE.md`.
+> The per-app runbook lives in `AGENTS.md`.
 
 ---
 
