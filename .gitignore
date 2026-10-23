@@ -7,6 +7,8 @@ frontend/src/.vite/
 secrets/
 rules-claude.md
 api-testing.md
+# Estado local de scripts/oliva (por-repo, no se versiona): fecha del último `deps.sh audit`.
+.oliva/
 
 # Auto-generado por cache:clear (auto-scripts → post-install-cmd), solo para
 # autocompletado del IDE: nada en runtime lo lee. Estaba trackeado y CADA build lo
