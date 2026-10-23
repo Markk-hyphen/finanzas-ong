@@ -1,5 +1,26 @@
 # Registro de commits del agente
 
+## [SYNC OLIVA 1.4.0] Capa agéntica: migración `CLAUDE.md`→`AGENTS.md` + CLI `./oliva`
+**Hash:** `2701abd` (merge a `main`; incluye `b50b81f` pre-rename y `a9dabd8` merge del sync)
+**Rama:** `chore/oliva-sync-1.4.0` → `main`
+**Fecha:** 2026-10-23
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `CLAUDE.md` | modificado | Deja de ser la guía operativa: ahora es un stub de 1 línea `@AGENTS.md` (OLIVA-owned, baja de upstream) |
+| `AGENTS.md` | nuevo (rename de `CLAUDE.md`) | Guía operativa, formato abierto. Merge 3-vías: se adoptaron de 1.4.0 solo las 3 auto-referencias (`CLAUDE.md`/`claude-commands.md` → `AGENTS.md`/`agent-commands.md`) y el reemplazo del bloque de 7 chequeos por `./oliva doctor`; se preservó toda la identidad del fork (shared-infra, vhost staging, Convención de idioma, notas JWT del VPS) |
+| `agent-commands.md` | nuevo (rename de `claude-commands.md`) | Auto-merge; adoptó el título "Agent Commands" y la nota de prefijo de upstream. El prefijo `claude` del fork se preservó (coincide con el default de Oliva) |
+| `oliva` | nuevo | CLI dispatcher (OLIVA-owned). `./oliva doctor` colapsa los 7 chequeos de inicio en una llamada read-only |
+| `AGENTS.local.md` | renombrado (gitignored) | Era `rules-claude.md`; `mv` post-merge, header actualizado. No trackeado |
+| `.gitignore` | modificado | Adoptó `AGENTS.local.md` (rename) + mantuvo `api-testing.md` del fork |
+| `README.md`, `docs/**`, `scripts/**`, `OLIVA_VERSION` | modificado | Auto-merge de upstream 1.4.0; `OLIVA_VERSION` → 1.4.0 |
+
+### Justificación
+El sync NO fue mecánico: Oliva 1.4.0 renombra el archivo SHARED `CLAUDE.md`→`AGENTS.md` en ambos lados. Se pre-renombró con `git mv` en el fork ANTES del merge (como pide `UPGRADING.md` 1.4.0) para que git siguiera el rename en vez de tratarlo como delete+add. Aun así, la colisión rename/add (upstream además agrega un `CLAUDE.md` stub nuevo) generó marcadores anidados en `AGENTS.md` y **se comió el stub** — se restauró verbatim de `oliva-upstream/main` por ser OLIVA-owned.
+
+Para `AGENTS.md` se descartó resolver los 10 bloques de conflicto anidados a mano (frágil) en favor de un merge 3-vías explícito: partiendo del contenido del fork, se aplicaron SOLO los cambios reales de 1.4.0 (aislados con `diff upstream vs fork`), garantizando que ninguna sección de identidad del fork se perdiera. Criterio heredado del sync 1.3.0: identidad del fork + adoptar secciones útiles de upstream. `verify.sh` 8/8 PASS y `./oliva doctor` confirma el fork al día antes del merge a `main`.
+
 ## [FIX] El material tipeado sin elegir de la lista se descartaba
 **Hash:** `16cf80e`
 **Rama:** `feat/ui-upgrade`
