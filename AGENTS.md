@@ -2,7 +2,7 @@
 
 Framework base para construir webapps: backend Symfony (FrankenPHP), frontend Vite, base de datos PostgreSQL (con pgvector), tiempo real vía Mercure, colas vía RabbitMQ + Symfony Messenger, y un contenedor scheduler (cron) para tareas programadas. Todo orquestado con Docker Compose.
 
-Este `CLAUDE.md` es la guía operativa para agentes que trabajen sobre proyectos construidos con Oliva. La documentación humana (stack, getting started) está en `README.md`.
+Este `AGENTS.md` es la guía operativa para agentes que trabajen sobre proyectos construidos con Oliva. La documentación humana (stack, getting started) está en `README.md`.
 
 ## Versiones, actualizaciones y forks
 
@@ -92,7 +92,7 @@ Hoy la única mitigación es manual: `git checkout -- api/` después de cada ses
 Overlay genérico, **opt-in**, para cuando varias apps Oliva comparten un mismo
 VPS con Postgres/RabbitMQ/reverse-proxy en un repo de infra separado (no es
 código de Oliva ni de ninguna app — es su propia capa de Infrastructure-as-Code,
-ver convención en `claude-commands.md`/memoria del proyecto de infra).
+ver convención en `agent-commands.md`/memoria del proyecto de infra).
 
 Se apila encima de `docker-compose.prod.yml`, no lo reemplaza:
 
@@ -343,7 +343,7 @@ Para proyectos multi-sesión o de trabajo autónomo, `agent-commits.md` en la ra
 
 ## Comandos del agente
 
-Ver `claude-commands.md` en la raíz del proyecto para los comandos que el usuario puede invocar en el chat (protocolos de reinicio de sesión, etc.).
+Ver `agent-commands.md` en la raíz del proyecto para los comandos que el usuario puede invocar en el chat (protocolos de reinicio de sesión, etc.).
 
 ## Convención de idioma en el código
 
@@ -361,21 +361,20 @@ Los textos orientados al usuario (respuestas API, mensajes de error hacia el fro
 Correr al **inicio** de cada sesión antes de tocar código:
 
 ```bash
-git branch --show-current          # confirmar la rama de trabajo esperada
-git status -s                      # debe estar limpio (o saber qué hay pendiente)
-git log --oneline -3               # orientarse en dónde quedó la sesión anterior
-docker compose ps                  # todos los servicios healthy
-docker compose exec backend bin/console doctrine:migrations:status  # sin migraciones pendientes
-scripts/oliva/sync.sh check        # ¿Oliva avanzó? (este repo es fork de Oliva)
-scripts/oliva/deps.sh due          # ¿toca ciclo de deps (~45d)? ¿toca audit de seguridad (~7d)?
+./oliva doctor
 ```
 
-`deps.sh due` reporta DOS cadencias: el ciclo de deps (frescura, ~45 días → `report`/`update`)
+Colapsa rama, status, log, `docker compose ps`, estado de migraciones, `deps.sh due`
+y (si el repo es un fork, detectando el remote `oliva-upstream`) `sync.sh check` en
+una sola llamada read-only. Ningún paso lo aborta — ni con Docker abajo.
+
+`deps.sh due` (dentro de `doctor`) reporta DOS cadencias: el ciclo de deps (frescura, ~45 días → `report`/`update`)
 y el audit de CVEs (seguridad, ~7 días → `scripts/oliva/deps.sh audit`, que corre composer +
 yarn audit + Trivy sobre las imágenes base). Si el audit avisa que TOCA, correr `deps.sh audit`
 — un CVE no espera al ciclo de 45 días. Ver `docs/oliva/actualizaciones.md` ("El aviso por advisory").
 
-Si alguno de los tres avisa (sync, deps o audit), mencionárselo a Marcos al arrancar — no ejecutar el ciclo ni el audit sin que lo pida.
+En un **fork**, `doctor` agrega el chequeo de `sync.sh check` (¿Oliva avanzó?) automáticamente.
+Si deps o sync avisan, mencionárselo a Marcos al arrancar — no ejecutar el ciclo ni el audit sin que lo pida.
 
 Verificar al **cierre** de sesión antes de cortar:
 
