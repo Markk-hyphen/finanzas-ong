@@ -61,7 +61,7 @@ None of this lives in a personal config — it's in the repo, inspectable and ve
 
 ### Prerequisitos
 
-- [Docker](https://docs.docker.com/get-docker/) con Compose v2.10+
+- [Docker](https://docs.docker.com/get-docker/) con Compose **v2.24+**. v2.10 alcanza para el stack de desarrollo base, pero los overlays de infra compartida y staging (que finanzas-ong usa en el VPS) requieren el merge tag `!override`. Verificar con `docker compose version`.
 
 ### Desarrollo
 
@@ -224,17 +224,20 @@ there is no advance warning.
 scripts/oliva/deps.sh due      # time for a maintenance cycle (~45d)? for a security audit (~7d)?
 scripts/oliva/deps.sh report   # EOL, images, composer, yarn, actions, CVEs
 scripts/oliva/deps.sh update   # bump within ranges + verify + commit
-scripts/oliva/deps.sh audit    # CVE audit across all three layers (composer + yarn + container images)
+scripts/oliva/deps.sh audit    # CVE audit across all four layers (composer + yarn + container images + compiled runtime)
 scripts/oliva/release.sh X.Y.Z # tag a release
 ```
 
 **Security runs on its own clock.** The 45-day cycle is about *freshness*; a critical CVE
-isn't. `deps.sh audit` — runnable in Oliva *and in every fork* — checks the three dependency
+isn't. `deps.sh audit` — runnable in Oliva *and in every fork* — checks four dependency
 layers for known CVEs with a published fix, and `deps.sh due` nags once it's been more than a
-week. The point of it is the layer `composer audit` / `yarn audit` can't see: the OS packages
-and binaries *inside* the base images (scanned with Trivy). It's not runtime protection — it
-tells you when something you've pinned has a fix waiting. One source per layer, not stacked:
-the why is in [`docs/oliva/actualizaciones.md`](docs/oliva/actualizaciones.md).
+week. The point of it is the layers `composer audit` / `yarn audit` can't see: the OS packages
+and binaries *inside* the base images (scanned with Trivy), and the compiled runtime (PHP and
+the FrankenPHP server are built from source, so they're a package to no scanner — this layer
+reads the versions pinned in the backend `FROM` and compares them upstream against php.net and
+GitHub). It's not runtime protection — it tells you when something you've pinned has a fix
+waiting. One source per layer, not stacked: the why is in
+[`docs/oliva/actualizaciones.md`](docs/oliva/actualizaciones.md).
 
 ### File ownership
 

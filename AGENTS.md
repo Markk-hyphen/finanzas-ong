@@ -53,7 +53,7 @@ Además de `database`, `backend` y `frontend`, `docker-compose.yml` define:
 | Servicio | Para qué | Si la app no lo necesita |
 |---|---|---|
 | `rabbitmq` | Broker para Symfony Messenger (colas `ingest`/`enrich` de ejemplo, comentadas) | Quitar el bloque `rabbitmq` y las dependencias `depends_on: rabbitmq` de `backend`/`scheduler`/`worker` |
-| `scheduler` | Ejecuta `supercronic` con `backend/scheduler/crontab` para tareas periódicas. **Opt-in:** vive tras el profile `cron`, no arranca por defecto (mismo criterio que `rabbitmq`/`queues`). El crontab base viene vacío. | Por defecto ya no corre. Una app que necesite cron activa el profile (`--profile cron` o listando `scheduler` en `up`) y llena `backend/scheduler/crontab`. Para eliminarlo del todo: quitar el bloque `scheduler` y `backend/scheduler/crontab` |
+| `scheduler` | Ejecuta `supercronic` con `backend/scheduler/crontab` para tareas periódicas. **Opt-in:** vive tras el profile `cron`, no arranca por defecto (mismo criterio que `rabbitmq`/`queues`). El crontab base viene vacío. | Por defecto ya no corre. Una app que necesite cron llena `backend/scheduler/crontab` y activa el profile con `COMPOSE_PROFILES=cron` en el `.env` (en prod, el `.env` **del host**: es lo que lee el `up` de `deploy.sh`). Si el crontab tiene tareas y el profile no está activo, `deploy.sh`/`deploy-staging.sh` lo avisan al final (`scripts/lib/cron-guard.sh`). Para eliminarlo del todo: quitar el bloque `scheduler` y `backend/scheduler/crontab` |
 | `worker` (en `docker-compose.override.yml`, dev) | Corre `bin/console messenger:consume` | Quitar el bloque `worker` si no hay mensajes async |
 
 La base de datos usa la imagen `pgvector/pgvector:pg${POSTGRES_VERSION}` — es un Postgres normal con la extensión `vector` compilada y una migración que la habilita (`CREATE EXTENSION IF NOT EXISTS vector`). No tiene costo si la app no usa tipos `vector`; no hace falta quitarla.
@@ -67,7 +67,7 @@ y su stack de prod resuelve a `backend frontend scheduler` — sin worker, los m
 encolarían y nadie los consumiría. No es un cambio chico: el servicio tiene que existir en
 `prod.yml`, en `shared-infra.yml` (red `data_net`, `depends_on` anulado, DSN del RabbitMQ
 compartido) y en `staging.yml` (imagen y `APP_ENV` de staging), y va detrás del profile `queues`,
-así que depende de arreglar antes el `down` de los deploys (ver "profiles en los scripts de deploy").
+así que necesitaba que el `down` de los deploys bajara todos los profiles (resuelto en 1.4.2 con `--profile '*'`).
 
 Mercure (`/.well-known/mercure`) está siempre activo vía el hub de Caddy (`backend/frankenphp/Caddyfile`); la demo de canvas en vivo (`backend/public/live.php` + `frontend/src/js/live.js`) muestra que funciona out of the box.
 
@@ -86,23 +86,27 @@ Varias apps Oliva conviven en el mismo host (en dev, tu máquina; en prod, el VP
 
 **Guard de colisión en los scripts** (`scripts/lib/project-guard.sh`, sourceado por `deploy*.sh`/`down*.sh`): antes de `down`/`up`, aborta si el project ya tiene containers levantados desde **otro** directorio (label `com.docker.compose.project.working_dir`, que Compose pone solo), y rechaza nombres de app que terminen en `-staging` (sufijo reservado). Lo que el guard **no** cubre: `infra/scripts/provision-postgres.sh` se sigue tipeando a mano y puede driftear del project name. Convención: `<app>_db`/`<app>_user` con el mismo `<app>` que el `-p`.
 
-### Deuda conocida: profiles en los scripts de deploy
+**Profiles en el `down` de los scripts:** `deploy*.sh`/`down*.sh` bajan con `--profile '*'`. Un `down` sin profile activo deja corriendo, sin error, a los servicios con `profiles:` que un overlay redefine (`scheduler`/`rabbitmq` en `prod.yml`): el stack viejo sobrevive al deploy. El `COMPOSE_PROFILES=cron` de antes reemplazaba los profiles del `.env` y dejaba afuera a `queues`. `'*'` también mete en scope a `database`/`rabbitmq` desactivados en shared-infra; no tienen containers en ese project, así que el `down` no hace nada con ellos.
 
-- `scripts/deploy.sh` termina diciendo "agregá `--profile cron` al up", pero el script es
-  OLIVA-owned: un fork no lo puede editar. El mecanismo real es `COMPOSE_PROFILES` en el `.env`
-  del host (Compose lo lee solo en el `up`). Un fork que necesita cron en prod (finanzas-ong:
-  auto-confirm de pagos + reintentos de notificaciones) lo pierde en silencio si su `.env` no lo
-  declara. Corregir el mensaje y documentarlo.
-- El `down` de `deploy.sh`/`deploy-staging.sh` corre con `COMPOSE_PROFILES=cron`, que
-  **reemplaza** los profiles del `.env`: un servicio de otro profile (`queues`) queda fuera del
-  `down` y sigue corriendo viejo. Candidato: `--profile '*'` en el `down`.
+### Constraints de composer: siempre con techo, pisos con `bump-after-update`
 
-### Deuda conocida: constraints sin techo + `bump-after-update`
+Todo constraint de `require`/`require-dev` en `backend/composer.json` lleva techo (`^x.y`,
+`x.y.*`). Uno sin techo (`*`, `>=x`, `dev-main`) deja que `composer update` instale un major
+sin aviso: así entró mercure-bundle 0.6 y rompió el build. Lo frena
+`scripts/oliva/unbound-constraints.php`, que corre antes de `deps.sh update`, antes de
+`sync.sh locks` y en el CI (job `composer-constraints`). `composer validate` hace lo mismo
+pero solo sobre `require`.
 
-`backend/composer.json` (en Oliva y en los forks) tiene `doctrine/doctrine-migrations-bundle
->=3.7.1` y `symfony/maker-bundle >=1.68`, y `"bump-after-update": true` convierte otros rangos en
-`>=`. Con eso `deps.sh update` puede subir un major sin aviso (ya pasó con mercure-bundle 0.6).
-Ponerles techo (`^3.7`, `^1.68`) y decidir si `bump-after-update` se queda.
+`"bump-after-update": true` **se queda a propósito**: sube el piso de cada constraint a la
+versión instalada (`^3.6` → `^3.7.5`) y nunca toca el techo. Ese piso es lo que impide que
+composer **baje** una versión sin avisar cuando un fork agrega una dep que la restringe
+(`composer require -W`) o en `sync.sh locks`: sin piso, el fork se queda en una versión que
+Oliva ya no testea y el comando termina OK. El costo es ~6 líneas de diff por ciclo de deps en
+un archivo SHARED.
+
+Lo que los techos no cubren: una dep **transitiva** puede saltar de major si la directa declara
+compatibilidad (`doctrine/orm` acepta `dbal ^3 || ^4`). `deps.sh update` las marca con
+`⇑ MAJOR` en el resumen: mirar el changelog antes de mergear.
 
 ### Deuda conocida: environments de Bruno commiteados se ensucian solos al testear
 
@@ -130,8 +134,8 @@ docker compose -p ong \
   -f docker-compose.yml -f docker-compose.prod.yml \
   -f docker-compose.shared-infra.yml up -d
 # (sin listar servicios: el profile inerte excluye database/rabbitmq y el
-#  profile `cron` excluye scheduler. Si la app necesita cron, agregar
-#  `--profile cron` y llenar backend/scheduler/crontab.)
+#  profile `cron` excluye scheduler. Si la app necesita cron, declarar
+#  COMPOSE_PROFILES=cron en el .env y llenar backend/scheduler/crontab.)
 ```
 
 Qué hace (requiere Docker Compose ≥ 2.24, por la tag de merge `!override`):
@@ -181,7 +185,9 @@ compartida. El código viene del `git pull`, pero estos NO (o requieren un valor
 > se hacen una sola vez por app), cada redeploy es solo:
 > `cd ~/<app> && ./scripts/deploy.sh` (toma el `app_name` del nombre del dir;
 > hace `down` antes del `up` para no dejar containers stale). Si la app usa
-> cron, editar el script o agregar `--profile cron`. Los pasos de abajo quedan
+> cron (o colas), declararlo en el `.env` del host: `COMPOSE_PROFILES=cron`
+> (o `queues,cron`) — el script no se edita; si el crontab tiene tareas y el
+> profile falta, avisa al final. Los pasos de abajo quedan
 > como referencia de qué hace cada cosa.
 
 1. **En el VPS, traer el código:** `cd ~/<app> && git pull` (trae el overlay y
