@@ -9,9 +9,9 @@ Este `AGENTS.md` es la guía operativa para agentes que trabajen sobre proyectos
 Oliva se versiona (`OLIVA_VERSION`, tags `vX.Y.Z`) y las apps hechas con Oliva viven en **repos separados** (finanzas-ong, crypto-pulse) con un remote `oliva-upstream` que apunta acá. El sistema completo está en **`docs/oliva/actualizaciones.md`**; en corto:
 
 - **Mantener Oliva vivo** (acá): `scripts/oliva/deps.sh due` en cada inicio de sesión; cuando dice TOCA → `deps.sh report` (EOL, imágenes, composer, yarn, actions, CVEs) → `deps.sh update` (bump dentro de rangos + `verify.sh` + commit en `chore/deps-<fecha>`) → saltos de major/imágenes base a mano, uno por commit → notas en `docs/oliva/UPGRADING.md` → `scripts/oliva/release.sh X.Y.Z` → push de `main` + tag.
-- **Bajarlo a cada fork** (en el fork): `scripts/oliva/sync.sh check` en cada inicio de sesión; si está atrás → `sync.sh start` → resolver → `sync.sh locks` → commit → `sync.sh verify` → merge local a `main`.
+- **Bajarlo a cada fork** (en el fork): `scripts/oliva/sync.sh check` en cada inicio de sesión; si está atrás → `sync.sh start` → resolver → `sync.sh locks` → commit → `sync.sh verify` → merge local a `main` → hacer lo que `./oliva doctor` lista en "acciones de upgrade" y reconocerlo con `./oliva ack` (por máquina: las `[host]` las muestra el `deploy.sh` de cada host hasta un `ack` ahí).
 - **Propiedad de archivos:** `scripts/oliva/owned-paths.txt`. Un fork no edita los archivos de Oliva; si necesita otra cosa, se agrega a Oliva como opción y baja a todos.
-- **Al cambiar algo que un fork tenga que acompañar** (renombre, variable nueva, paso manual), escribirlo en `docs/oliva/UPGRADING.md` en el mismo commit — es lo que `sync.sh` le muestra al fork. `release.sh` no publica sin esa sección.
+- **Al cambiar algo que un fork tenga que acompañar** (renombre, variable nueva, paso manual), escribirlo en `docs/oliva/UPGRADING.md` en el mismo commit — es lo que `sync.sh` le muestra al fork. `release.sh` no publica sin esa sección, ni con acciones sin etiqueta `[lugar]` / `[lugar, guard: <id>]`. Antes de escribir una acción sin guard, preguntarse si se puede chequear: casi siempre es estado fuera de git (un `.env`, otro host), y un guard en `scripts/lib/upgrade-guards.sh` lo avisa en `verify`/`deploy` sin depender de que alguien lea la nota.
 
 **Por qué importa:** antes de 1.1.0 nada avisaba que un fork había quedado atrás, y un fork con mes y medio de divergencia costó 19 conflictos (`add/add` del esqueleto Symfony, que hoy ya tiene ancestro común en todos los forks).
 
@@ -395,9 +395,11 @@ Correr al **inicio** de cada sesión antes de tocar código:
 ./oliva doctor
 ```
 
-Colapsa rama, status, log, `docker compose ps`, estado de migraciones, `deps.sh due`
+Colapsa rama, status, log, `docker compose ps`, estado de migraciones, `deps.sh due`,
+acciones de upgrade pendientes en esta máquina (`sync.sh pending`; se reconocen con `./oliva ack`)
 y (si el repo es un fork, detectando el remote `oliva-upstream`) `sync.sh check` en
-una sola llamada read-only. Ningún paso lo aborta — ni con Docker abajo.
+una sola llamada read-only (lo único que escribe es `.oliva/acked-version` la primera vez, gitignored).
+Ningún paso lo aborta — ni con Docker abajo.
 
 `deps.sh due` (dentro de `doctor`) reporta DOS cadencias: el ciclo de deps (frescura, ~45 días → `report`/`update`)
 y el audit de CVEs (seguridad, ~7 días → `scripts/oliva/deps.sh audit`, que corre composer +
