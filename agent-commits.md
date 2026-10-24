@@ -1,5 +1,29 @@
 # Registro de commits del agente
 
+## [SYNC OLIVA 1.4.3] Worker mode + 4ª capa de audit + cron/constraints; falso positivo en verify
+**Hash:** `c11a469061ae18f4f0a37d7676e920ae26e78dd4` (merge a `main`; incluye `c05586e` merge del sync)
+**Rama:** `chore/oliva-sync-1.4.3` → `main`
+**Fecha:** 2026-10-24
+
+### Cambios
+| Archivo | Tipo | Descripción |
+|---|---|---|
+| `OLIVA_VERSION` | modificado | 1.4.1 → 1.4.3 |
+| `README.md` | modificado (conflicto MANUAL) | Resuelto con `--ours` (identidad del fork) + 2 deltas fácticos traídos de upstream: Compose `v2.10+`→`v2.24+` (finanzas-ong usa shared-infra/staging, que necesitan `!override`) y "tres capas"→"cuatro capas" de audit (nueva capa de runtime compilado) |
+| `agent-commits.md` | conflicto FORK | `git checkout --ours` (log del proyecto, no se mezcla con el de Oliva) |
+| `backend/composer.lock` | conflicto LOCK | `sync.sh locks`: Oliva no cambió versiones, solo refrescó el content-hash |
+| `.env` (local, gitignored) | modificado | Borrada la línea stale `FRANKENPHP_CONFIG=` (acción requerida de UPGRADING 1.4.3): un env_file base vacío pisaba el worker mode horneado y lo apagaba en prod sin error |
+| (resto OLIVA-owned) | modificado | Auto-merge: `scripts/deploy*.sh`/`down*.sh` (down con `--profile '*'`), `scripts/lib/cron-guard.sh` (nuevo), `scripts/oliva/{deps,verify,sync,lib}.sh`, `unbound-constraints.php` (nuevo), `backend/composer.json` (techos), `.github/workflows/ci.yml`, `backend/Dockerfile`+`frankenphp/worker.Caddyfile`, docs |
+
+### Justificación
+Sync mecánico salvo dos puntos que vale registrar por el *por qué* no obvio:
+
+**1. Resolución del `README` (criterio para todo README/AGENTS del fork).** El `README` es SHARED, no OLIVA-owned: es el README propio de finanzas-ong (identidad de la app: badges, MANIFIESTO, principios de diseño). Upstream reescribió el README genérico del *framework*. Criterio: quedarse con la identidad del fork y traer de Oliva **solo deltas fácticos que el fork también afirma** y quedaron desactualizados (la versión de Compose y el número de capas de audit) — no el pitch de marketing del framework, que no va en el README de una app.
+
+**2. Falso positivo en `verify` (step `prod-worker`) — NO se arregló acá a propósito.** `verify` dio 9/10; el FAIL es un bug del step, no del fork: hace `config --images backend | head -1`, que en Compose 2.26 devuelve primero la imagen de la dependencia (`database` → `pgvector/pgvector:pg15`) e inspecciona esa en vez del backend. La imagen real `finanzas-ong-backend:prod` SÍ hornea `FRANKENPHP_CONFIG=import worker.Caddyfile`. `verify.sh` es OLIVA-owned → el fix va en Oliva (cambiar image-inspect por resolver `config --format json`, misma lógica que el job `prod-config` de CI; de paso ese check corrido local atrapa el `.env` stale, que CI nunca ve). Diagnóstico completo en la memoria del proyecto.
+
+**Aprendizaje de proceso:** los ítems de "Acción requerida en el fork" del UPGRADING se ejecutan durante el sync (antes de `verify`), no se mencionan y se difieren. Acá el `.env` stale se procesó recién cuando Marcos lo marcó. Tarea para Oliva: hacer esos ítems enforced (guards + sticky hasta ack) en vez de prosa pasiva.
+
 ## [SYNC OLIVA 1.4.0] Capa agéntica: migración `CLAUDE.md`→`AGENTS.md` + CLI `./oliva`
 **Hash:** `2701abd` (merge a `main`; incluye `b50b81f` pre-rename y `a9dabd8` merge del sync)
 **Rama:** `chore/oliva-sync-1.4.0` → `main`
